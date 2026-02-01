@@ -4,7 +4,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local tool = char:WaitForChild("RPG")
 local ev = game.ReplicatedStorage.RocketSystem.Events
 local fx = ev.RocketReloadedFX
-local fire = ev.FireRocket
+local fire = ev.FireRocketReplicated
 local hit = ev.RocketHit
 local cnt = 0
 
@@ -12,11 +12,11 @@ local cnt = 0
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "RPGSpammerGUI"
 screenGui.Parent = game.CoreGui
-screenGui.ResetOnSpawn = false -- GUI WON'T DISAPPEAR ON DEATH
+screenGui.ResetOnSpawn = false
 
 -- Main frame with dragging
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 350, 0, 450) -- Increased width
+frame.Size = UDim2.new(0, 350, 0, 450)
 frame.Position = UDim2.new(0.5, -175, 0.5, -225)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.BorderSizePixel = 2
@@ -27,7 +27,7 @@ frame.Draggable = true
 
 -- Title
 local title = Instance.new("TextLabel")
-title.Text = "RPG Spammer v3.0 - Multi Select"
+title.Text = "RPG Spammer v5.0 - Multi Select"
 title.Size = UDim2.new(1, 0, 0, 40)
 title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -35,7 +35,7 @@ title.Font = Enum.Font.SourceSansBold
 title.TextSize = 18
 title.Parent = frame
 
--- List of selected players (for multi-select)
+-- List of selected players
 local selectedPlayers = {}
 local selectedButtons = {}
 
@@ -58,7 +58,7 @@ local function updatePlayerList()
     local yPos = 0
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= plr then
-            -- Create container for checkbox and name
+            -- Create container
             local container = Instance.new("Frame")
             container.Size = UDim2.new(1, -10, 0, 40)
             container.Position = UDim2.new(0, 5, 0, yPos)
@@ -92,27 +92,22 @@ local function updatePlayerList()
             -- Function to toggle selection
             local function togglePlayerSelection()
                 if selectedPlayers[player] then
-                    -- Remove from selection
                     selectedPlayers[player] = nil
                     checkbox.Text = ""
                     checkbox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
                     nameLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
                 else
-                    -- Add to selection
                     selectedPlayers[player] = true
                     checkbox.Text = "✓"
                     checkbox.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
                     nameLabel.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
                 end
-                
-                -- Update status
                 updateStatusLabel()
             end
             
             checkbox.MouseButton1Click:Connect(togglePlayerSelection)
             nameLabel.MouseButton1Click:Connect(togglePlayerSelection)
             
-            -- Restore state if player already selected
             if selectedPlayers[player] then
                 checkbox.Text = "✓"
                 checkbox.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
@@ -224,7 +219,7 @@ toggleBtn.Font = Enum.Font.SourceSansBold
 toggleBtn.TextSize = 18
 toggleBtn.Parent = frame
 
--- Function to attack specific player
+-- Функция атаки (РАБОЧАЯ ВЕРСИЯ)
 local function attackPlayer(player)
     if not player or not player.Character then return end
     local wHrp = player.Character:FindFirstChild("HumanoidRootPart")
@@ -233,20 +228,64 @@ local function attackPlayer(player)
     local pos = wHrp.Position
     local dir = (pos - hrp.Position).Unit
     
-    -- Fire FX only (rocket visual effect)
-    fx:FireServer(tool, true)
+    -- 1. Эффект перезарядки
+    fx:FireServer(tool, false)
     
-    -- REMOVED FIRE INVOKE SERVER LINE HERE
+    -- 2. ВЫСТРЕЛ (FireServer для RemoteEvent)
+    local fireArgs = {
+        ["Direction"] = dir,
+        ["Settings"] = {
+            ["expShake"] = {
+                ["fadeInTime"] = 0.05,
+                ["magnitude"] = 3,
+                ["rotInfluence"] = Vector3.new(0.4, 0, 0.4),
+                ["fadeOutTime"] = 0.5,
+                ["posInfluence"] = Vector3.new(1, 1, 0),
+                ["roughness"] = 3,
+            },
+            ["gravity"] = Vector3.new(0, -20, 0),
+            ["HelicopterDamage"] = 450,
+            ["FireRate"] = 15,
+            ["VehicleDamage"] = 350,
+            ["ExpName"] = "RPG",
+            ["RocketAmount"] = 1,
+            ["ExpRadius"] = 12,
+            ["BoatDamage"] = 300,
+            ["TankDamage"] = 300,
+            ["Acceleration"] = 8,
+            ["ShieldDamage"] = 170,
+            ["Distance"] = 4000,
+            ["PlaneDamage"] = 500,
+            ["GunshipDamage"] = 170,
+            ["velocity"] = 200,
+            ["ExplosionDamage"] = 120,
+        },
+        ["Origin"] = hrp.Position,
+        ["PlrFired"] = plr,
+        ["Vehicle"] = tool,
+        ["RocketModel"] = game.ReplicatedStorage.RocketSystem.Rockets["RPG Rocket"],
+        ["Weapon"] = tool,
+    }
     
-    hit:FireServer(
-        Vector3.new(pos.X, pos.Y, pos.Z),
-        Vector3.new(dir.X, dir.Y, dir.Z),
-        tool,
-        tool,
-        wHrp,
-        nil,
-        plr.Name .. "Rocket" .. cnt
-    )
+    -- Выстрел
+    pcall(function()
+        fire:FireServer(fireArgs)
+    end)
+    
+    -- 3. Урон
+    local hitArgs = {
+        ["Normal"] = Vector3.new(0, 1, 0),
+        ["HitPart"] = wHrp,
+        ["Position"] = pos,
+        ["Label"] = plr.Name .. "Rocket" .. cnt,
+        ["Vehicle"] = tool,
+        ["Player"] = plr,
+        ["Weapon"] = tool,
+    }
+    
+    pcall(function()
+        hit:FireServer(hitArgs)
+    end)
     
     cnt = cnt + 1
 end
@@ -278,13 +317,11 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         statusLabel.Text = "🔥 SPAM ACTIVE! Targets: " .. selectedCount
         
-        -- Start spam thread for ALL selected players
+        -- Start spam thread
         spamThreads["main"] = task.spawn(function()
             while spamActive do
-                -- Attack all selected players
                 for player, _ in pairs(selectedPlayers) do
                     if player and player.Character then
-                        -- Multi-attack: 3 shots per player per cycle
                         for i = 1, 3 do
                             task.spawn(function()
                                 attackPlayer(player)
@@ -292,11 +329,11 @@ toggleBtn.MouseButton1Click:Connect(function()
                         end
                     end
                 end
-                task.wait(0.05) -- High speed
+                task.wait(0.05)
             end
         end)
         
-        -- Additional threads for more speed
+        -- Additional threads
         for i = 1, 3 do
             spamThreads["extra_" .. i] = task.spawn(function()
                 while spamActive do
@@ -325,7 +362,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Quick shot button (all selected)
+-- Quick shot button
 local quickBtn = Instance.new("TextButton")
 quickBtn.Text = "🔥 SINGLE BURST"
 quickBtn.Size = UDim2.new(1, -10, 0, 30)
@@ -347,7 +384,6 @@ quickBtn.MouseButton1Click:Connect(function()
         return
     end
     
-    -- Single burst at all selected
     for player, _ in pairs(selectedPlayers) do
         task.spawn(function()
             attackPlayer(player)
@@ -363,13 +399,12 @@ updateStatusLabel()
 
 -- Update list on player join/leave
 game.Players.PlayerAdded:Connect(function(player)
-    task.wait(1) -- Wait for initialization
+    task.wait(1)
     updatePlayerList()
     updateStatusLabel()
 end)
 
 game.Players.PlayerRemoving:Connect(function(player)
-    -- Remove player from selection if they leave
     selectedPlayers[player] = nil
     task.wait(0.5)
     updatePlayerList()
@@ -388,7 +423,6 @@ closeBtn.TextSize = 20
 closeBtn.Parent = frame
 
 closeBtn.MouseButton1Click:Connect(function()
-    -- Stop spam before closing
     spamActive = false
     for name, thread in pairs(spamThreads) do
         task.cancel(thread)
@@ -419,7 +453,6 @@ minimizeBtn.MouseButton1Click:Connect(function()
         minimizeBtn.Text = "□"
         title.Text = "RPG Spammer (minimized)"
         
-        -- Hide all elements except title and buttons
         for _, child in ipairs(frame:GetChildren()) do
             if child ~= title and child ~= closeBtn and child ~= minimizeBtn then
                 child.Visible = false
@@ -428,9 +461,8 @@ minimizeBtn.MouseButton1Click:Connect(function()
     else
         frame.Size = originalSize
         minimizeBtn.Text = "─"
-        title.Text = "RPG Spammer v3.0 - Multi Select"
+        title.Text = "RPG Spammer v5.0 - Multi Select"
         
-        -- Show all elements
         for _, child in ipairs(frame:GetChildren()) do
             child.Visible = true
         end
@@ -443,7 +475,6 @@ plr.CharacterAdded:Connect(function(newChar)
     hrp = newChar:WaitForChild("HumanoidRootPart")
     tool = newChar:WaitForChild("RPG")
     
-    -- Check if tool exists, if not - search in backpack
     if not tool then
         local backpack = plr:FindFirstChild("Backpack")
         if backpack then
@@ -452,9 +483,6 @@ plr.CharacterAdded:Connect(function(newChar)
     end
 end)
 
-print("✅ RPG Spammer v3.0 with multi-select loaded!")
-print("🎯 Features:")
-print("   • Multi-select players")
-print("   • Shoot at all selected")
-print("   • GUI persistent on death")
-print("   • Select All / Clear buttons")
+print("✅ RPG Spammer v5.0 загружен!")
+print("🎯 FireRocketReplicated: FireServer с таблицей")
+print("🎯 Multi-select с GUI")
