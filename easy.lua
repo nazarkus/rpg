@@ -1,15 +1,18 @@
 local plr = game.Players.LocalPlayer
-local char = plr.Character or plr.CharacterAddedWait()
-local hrp = charWaitForChild(HumanoidRootPart)
-local tool = charWaitForChild(RPG)
+local char = plr.Character or plr.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+-- Пытаемся найти RPG, ждем 5 секунд, иначе ищем в рюкзаке
+local tool = char:FindFirstChild("RPG") or plr.Backpack:FindFirstChild("RPG")
+
 local ev = game.ReplicatedStorage.RocketSystem.Events
 local fx = ev.RocketReloadedFX
 local fire = ev.FireRocketReplicated
 local hit = ev.RocketHit
 local cnt = 0
 
-local TweenService = gameGetService(TweenService)
-local RunService = gameGetService(RunService)
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local currentGradientColor = Color3.fromRGB(100, 120, 200)
 local gradientTime = 0
@@ -35,21 +38,21 @@ local Colors = {
 
 local function lerpColor(c1, c2, t)
     return Color3.new(
-        c1.R + (c2.R - c1.R)  t,
-        c1.G + (c2.G - c1.G)  t,
-        c1.B + (c2.B - c1.B)  t
+        c1.R + (c2.R - c1.R) * t,
+        c1.G + (c2.G - c1.G) * t,
+        c1.B + (c2.B - c1.B) * t
     )
 end
 
 local function addCorner(instance, radius)
-    local corner = Instance.new(UICorner)
+    local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, radius or 12)
     corner.Parent = instance
     return corner
 end
 
 local function addStroke(instance, color, thickness, transparency)
-    local stroke = Instance.new(UIStroke)
+    local stroke = Instance.new("UIStroke")
     stroke.Color = color or Colors.Border
     stroke.Thickness = thickness or 1.5
     stroke.Transparency = transparency or 0
@@ -59,10 +62,10 @@ local function addStroke(instance, color, thickness, transparency)
 end
 
 local function addShadow(parent)
-    local shadow = Instance.new(ImageLabel)
-    shadow.Name = Shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
     shadow.BackgroundTransparency = 1
-    shadow.Image = rbxassetid6014261993
+    shadow.Image = "rbxassetid://6014261993"
     shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
     shadow.ImageTransparency = 0.2
     shadow.ScaleType = Enum.ScaleType.Slice
@@ -75,14 +78,14 @@ local function addShadow(parent)
 end
 
 local function addInnerGlow(parent, color)
-    local glow = Instance.new(Frame)
-    glow.Name = InnerGlow
+    local glow = Instance.new("Frame")
+    glow.Name = "InnerGlow"
     glow.Size = UDim2.new(1, 0, 1, 0)
     glow.BackgroundTransparency = 1
     glow.ZIndex = parent.ZIndex
     glow.Parent = parent
     
-    local glowStroke = Instance.new(UIStroke)
+    local glowStroke = Instance.new("UIStroke")
     glowStroke.Color = color or Colors.Glow
     glowStroke.Thickness = 1.5
     glowStroke.Transparency = 0.6
@@ -99,29 +102,29 @@ local function addSyncedHoverEffect(button, baseColor)
     local data = {button = button, baseColor = baseColor, isHovered = false}
     table.insert(syncedButtons, data)
     
-    button.MouseEnterConnect(function()
+    button.MouseEnter:Connect(function()
         data.isHovered = true
-        TweenServiceCreate(button, TweenInfo.new(0.15), {BackgroundTransparency = 0})Play()
+        TweenService:Create(button, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
     end)
     
-    button.MouseLeaveConnect(function()
+    button.MouseLeave:Connect(function()
         data.isHovered = false
-        TweenServiceCreate(button, TweenInfo.new(0.2), {BackgroundColor3 = baseColor, BackgroundTransparency = 0})Play()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = baseColor, BackgroundTransparency = 0}):Play()
     end)
     
     return data
 end
 
 -- GUI
-local screenGui = Instance.new(ScreenGui)
-screenGui.Name = RPGSpammerGUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RPGSpammerGUI"
 screenGui.Parent = game.CoreGui
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 -- Main frame
-local frame = Instance.new(Frame)
-frame.Name = MainFrame
+local frame = Instance.new("Frame")
+frame.Name = "MainFrame"
 frame.Size = UDim2.new(0, 360, 0, 480)
 frame.Position = UDim2.new(0.5, -180, 0.5, -240)
 frame.BackgroundColor3 = Colors.Background
@@ -135,8 +138,8 @@ addShadow(frame)
 local outerGlow, outerGlowStroke = addInnerGlow(frame, Colors.Glow)
 
 -- Gradient container
-local gradientContainer = Instance.new(Frame)
-gradientContainer.Name = GradientContainer
+local gradientContainer = Instance.new("Frame")
+gradientContainer.Name = "GradientContainer"
 gradientContainer.Size = UDim2.new(1, 0, 1, 0)
 gradientContainer.BackgroundTransparency = 1
 gradientContainer.ClipsDescendants = true
@@ -145,8 +148,8 @@ gradientContainer.Parent = frame
 addCorner(gradientContainer, 20)
 
 -- Градиент 1 - затемнённый
-local gradientFrame1 = Instance.new(Frame)
-gradientFrame1.Name = Gradient1
+local gradientFrame1 = Instance.new("Frame")
+gradientFrame1.Name = "Gradient1"
 gradientFrame1.Size = UDim2.new(2.5, 0, 2.5, 0)
 gradientFrame1.Position = UDim2.new(-0.75, 0, -0.75, 0)
 gradientFrame1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -155,7 +158,7 @@ gradientFrame1.BorderSizePixel = 0
 gradientFrame1.ZIndex = 0
 gradientFrame1.Parent = gradientContainer
 
-local gradient1 = Instance.new(UIGradient)
+local gradient1 = Instance.new("UIGradient")
 gradient1.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 60, 180)),
     ColorSequenceKeypoint.new(0.2, Color3.fromRGB(60, 110, 200)),
@@ -168,8 +171,8 @@ gradient1.Rotation = 0
 gradient1.Parent = gradientFrame1
 
 -- Градиент 2
-local gradientFrame2 = Instance.new(Frame)
-gradientFrame2.Name = Gradient2
+local gradientFrame2 = Instance.new("Frame")
+gradientFrame2.Name = "Gradient2"
 gradientFrame2.Size = UDim2.new(2.5, 0, 2.5, 0)
 gradientFrame2.Position = UDim2.new(-0.75, 0, -0.75, 0)
 gradientFrame2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -178,7 +181,7 @@ gradientFrame2.BorderSizePixel = 0
 gradientFrame2.ZIndex = 0
 gradientFrame2.Parent = gradientContainer
 
-local gradient2 = Instance.new(UIGradient)
+local gradient2 = Instance.new("UIGradient")
 gradient2.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 100, 160)),
     ColorSequenceKeypoint.new(0.33, Color3.fromRGB(100, 180, 200)),
@@ -189,8 +192,8 @@ gradient2.Rotation = 60
 gradient2.Parent = gradientFrame2
 
 -- Градиент 3 - пульсирующий
-local gradientFrame3 = Instance.new(Frame)
-gradientFrame3.Name = Gradient3
+local gradientFrame3 = Instance.new("Frame")
+gradientFrame3.Name = "Gradient3"
 gradientFrame3.Size = UDim2.new(1.2, 0, 0.7, 0)
 gradientFrame3.Position = UDim2.new(-0.1, 0, -0.1, 0)
 gradientFrame3.BackgroundColor3 = Color3.fromRGB(120, 140, 200)
@@ -200,7 +203,7 @@ gradientFrame3.ZIndex = 0
 gradientFrame3.Parent = gradientContainer
 addCorner(gradientFrame3, 20)
 
-local gradient3 = Instance.new(UIGradient)
+local gradient3 = Instance.new("UIGradient")
 gradient3.Transparency = NumberSequence.new({
     NumberSequenceKeypoint.new(0, 0),
     NumberSequenceKeypoint.new(0.3, 0.4),
@@ -213,10 +216,10 @@ gradient3.Parent = gradientFrame3
 -- Частицы
 local particles = {}
 for i = 1, 6 do
-    local particle = Instance.new(Frame)
-    particle.Name = Particle .. i
+    local particle = Instance.new("Frame")
+    particle.Name = "Particle" .. i
     particle.Size = UDim2.new(0, math.random(25, 60), 0, math.random(25, 60))
-    particle.Position = UDim2.new(math.random()  0.8, 0, math.random()  0.8, 0)
+    particle.Position = UDim2.new(math.random() * 0.8, 0, math.random() * 0.8, 0)
     particle.BackgroundColor3 = Color3.fromRGB(150, 130, 200)
     particle.BackgroundTransparency = 0.75
     particle.BorderSizePixel = 0
@@ -226,48 +229,48 @@ for i = 1, 6 do
     
     table.insert(particles, {
         frame = particle,
-        speedX = (math.random() - 0.5)  0.25,
-        speedY = (math.random() - 0.5)  0.25,
-        phase = math.random()  math.pi  2
+        speedX = (math.random() - 0.5) * 0.25,
+        speedY = (math.random() - 0.5) * 0.25,
+        phase = math.random() * math.pi * 2
     })
 end
 
 -- Анимация
 local animationConnection
 
-animationConnection = RunService.RenderSteppedConnect(function(dt)
-    gradientTime = gradientTime + dt  1.8
+animationConnection = RunService.RenderStepped:Connect(function(dt)
+    gradientTime = gradientTime + dt * 1.8
     
-    gradient1.Rotation = gradientTime  25
+    gradient1.Rotation = gradientTime * 25
     gradient1.Offset = Vector2.new(
-        math.sin(gradientTime  0.9)  0.35,
-        math.cos(gradientTime  0.7)  0.35
+        math.sin(gradientTime * 0.9) * 0.35,
+        math.cos(gradientTime * 0.7) * 0.35
     )
     
-    gradient2.Rotation = -gradientTime  18 + 60
+    gradient2.Rotation = -gradientTime * 18 + 60
     gradient2.Offset = Vector2.new(
-        math.cos(gradientTime  0.8)  0.4,
-        math.sin(gradientTime  1.1)  0.4
+        math.cos(gradientTime * 0.8) * 0.4,
+        math.sin(gradientTime * 1.1) * 0.4
     )
     
-    gradient3.Offset = Vector2.new(math.sin(gradientTime  1.5)  0.25, 0)
-    gradientFrame3.BackgroundTransparency = 0.5 + math.sin(gradientTime)  0.15
+    gradient3.Offset = Vector2.new(math.sin(gradientTime * 1.5) * 0.25, 0)
+    gradientFrame3.BackgroundTransparency = 0.5 + math.sin(gradientTime) * 0.15
     
-    local hue = (gradientTime  0.06) % 1
-    local dynamicColor = Color3.fromHSV(hue  0.35 + 0.55, 0.55, 0.85)
+    local hue = (gradientTime * 0.06) % 1
+    local dynamicColor = Color3.fromHSV(hue * 0.35 + 0.55, 0.55, 0.85)
     gradientFrame3.BackgroundColor3 = dynamicColor
     
-    currentGradientColor = Color3.fromHSV(hue  0.35 + 0.55, 0.65, 0.95)
+    currentGradientColor = Color3.fromHSV(hue * 0.35 + 0.55, 0.65, 0.95)
     
-    outerGlowStroke.Color = Color3.fromHSV((hue  0.35 + 0.6) % 1, 0.45, 0.9)
-    outerGlowStroke.Transparency = 0.55 + math.sin(gradientTime  2.5)  0.15
+    outerGlowStroke.Color = Color3.fromHSV((hue * 0.35 + 0.6) % 1, 0.45, 0.9)
+    outerGlowStroke.Transparency = 0.55 + math.sin(gradientTime * 2.5) * 0.15
     
     for _, p in ipairs(particles) do
-        local x = 0.5 + math.sin(gradientTime  p.speedX + p.phase)  0.45
-        local y = 0.5 + math.cos(gradientTime  p.speedY + p.phase)  0.45
-        p.frame.Position = UDim2.new(x, -p.frame.Size.X.Offset2, y, -p.frame.Size.Y.Offset2)
-        p.frame.BackgroundTransparency = 0.7 + math.sin(gradientTime  2 + p.phase)  0.2
-        p.frame.BackgroundColor3 = Color3.fromHSV((hue + p.phase10) % 1  0.3 + 0.55, 0.4, 0.85)
+        local x = 0.5 + math.sin(gradientTime * p.speedX + p.phase) * 0.45
+        local y = 0.5 + math.cos(gradientTime * p.speedY + p.phase) * 0.45
+        p.frame.Position = UDim2.new(x, -p.frame.Size.X.Offset/2, y, -p.frame.Size.Y.Offset/2)
+        p.frame.BackgroundTransparency = 0.7 + math.sin(gradientTime * 2 + p.phase) * 0.2
+        p.frame.BackgroundColor3 = Color3.fromHSV((hue + p.phase/10) % 1 * 0.3 + 0.55, 0.4, 0.85)
     end
     
     for _, data in ipairs(syncedButtons) do
@@ -279,7 +282,7 @@ animationConnection = RunService.RenderSteppedConnect(function(dt)
 end)
 
 -- Title bar
-local titleBar = Instance.new(Frame)
+local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 55)
 titleBar.BackgroundTransparency = 1
 titleBar.ZIndex = 2
@@ -288,12 +291,12 @@ titleBar.Parent = frame
 -- Dragging
 local dragging, dragInput, dragStart, startPos
 
-titleBar.InputBeganConnect(function(input)
+titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
         startPos = frame.Position
-        input.ChangedConnect(function()
+        input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
             end
@@ -301,23 +304,23 @@ titleBar.InputBeganConnect(function(input)
     end
 end)
 
-titleBar.InputChangedConnect(function(input)
+titleBar.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement then
         dragInput = input
     end
 end)
 
-gameGetService(UserInputService).InputChangedConnect(function(input)
+UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        TweenServiceCreate(frame, TweenInfo.new(0.06), {
+        TweenService:Create(frame, TweenInfo.new(0.06), {
             Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        })Play()
+        }):Play()
     end
 end)
 
 -- Иконка
-local iconBg = Instance.new(Frame)
+local iconBg = Instance.new("Frame")
 iconBg.Size = UDim2.new(0, 38, 0, 38)
 iconBg.Position = UDim2.new(0, 14, 0, 10)
 iconBg.BackgroundColor3 = Colors.Tertiary
@@ -326,8 +329,8 @@ iconBg.ZIndex = 2
 iconBg.Parent = titleBar
 addCorner(iconBg, 12)
 
-local icon = Instance.new(TextLabel)
-icon.Text = 🚀
+local icon = Instance.new("TextLabel")
+icon.Text = "🚀"
 icon.Size = UDim2.new(1, 0, 1, 0)
 icon.BackgroundTransparency = 1
 icon.TextSize = 20
@@ -336,8 +339,8 @@ icon.ZIndex = 3
 icon.Parent = iconBg
 
 -- Title
-local title = Instance.new(TextLabel)
-title.Text = RPG Spammer
+local title = Instance.new("TextLabel")
+title.Text = "RPG Spammer"
 title.Size = UDim2.new(1, -130, 0, 24)
 title.Position = UDim2.new(0, 60, 0, 10)
 title.BackgroundTransparency = 1
@@ -349,7 +352,7 @@ title.ZIndex = 2
 title.Parent = titleBar
 
 -- Version badge
-local versionBadge = Instance.new(Frame)
+local versionBadge = Instance.new("Frame")
 versionBadge.Size = UDim2.new(0, 45, 0, 18)
 versionBadge.Position = UDim2.new(0, 60, 0, 35)
 versionBadge.BackgroundColor3 = Colors.Checkbox
@@ -358,8 +361,8 @@ versionBadge.ZIndex = 2
 versionBadge.Parent = titleBar
 addCorner(versionBadge, 9)
 
-local version = Instance.new(TextLabel)
-version.Text = v5.0
+local version = Instance.new("TextLabel")
+version.Text = "v5.0"
 version.Size = UDim2.new(1, 0, 1, 0)
 version.BackgroundTransparency = 1
 version.TextColor3 = Colors.Text
@@ -369,7 +372,7 @@ version.ZIndex = 3
 version.Parent = versionBadge
 
 -- Button container
-local btnContainer = Instance.new(Frame)
+local btnContainer = Instance.new("Frame")
 btnContainer.Size = UDim2.new(0, 70, 0, 34)
 btnContainer.Position = UDim2.new(1, -84, 0, 12)
 btnContainer.BackgroundColor3 = Colors.Secondary
@@ -379,8 +382,8 @@ btnContainer.Parent = titleBar
 addCorner(btnContainer, 10)
 
 -- Close button
-local closeBtn = Instance.new(TextButton)
-closeBtn.Text = ×
+local closeBtn = Instance.new("TextButton")
+closeBtn.Text = "×"
 closeBtn.Size = UDim2.new(0, 30, 0, 28)
 closeBtn.Position = UDim2.new(1, -33, 0.5, -14)
 closeBtn.BackgroundColor3 = Colors.Danger
@@ -394,8 +397,8 @@ addCorner(closeBtn, 8)
 addSyncedHoverEffect(closeBtn, Colors.Danger)
 
 -- Minimize button
-local minimizeBtn = Instance.new(TextButton)
-minimizeBtn.Text = −
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Text = "−"
 minimizeBtn.Size = UDim2.new(0, 30, 0, 28)
 minimizeBtn.Position = UDim2.new(0, 3, 0.5, -14)
 minimizeBtn.BackgroundColor3 = Colors.Tertiary
@@ -409,8 +412,8 @@ addCorner(minimizeBtn, 8)
 addSyncedHoverEffect(minimizeBtn, Colors.Tertiary)
 
 -- Content
-local content = Instance.new(Frame)
-content.Name = Content
+local content = Instance.new("Frame")
+content.Name = "Content"
 content.Size = UDim2.new(1, -28, 1, -65)
 content.Position = UDim2.new(0, 14, 0, 60)
 content.BackgroundTransparency = 1
@@ -418,7 +421,7 @@ content.ZIndex = 2
 content.Parent = frame
 
 -- Targets section
-local targetsSection = Instance.new(Frame)
+local targetsSection = Instance.new("Frame")
 targetsSection.Size = UDim2.new(1, 0, 0, 250)
 targetsSection.BackgroundColor3 = Colors.Card
 targetsSection.BackgroundTransparency = 0.15
@@ -429,14 +432,14 @@ addCorner(targetsSection, 14)
 addStroke(targetsSection, Colors.Border, 1, 0.4)
 
 -- Section header
-local sectionHeader = Instance.new(Frame)
+local sectionHeader = Instance.new("Frame")
 sectionHeader.Size = UDim2.new(1, 0, 0, 36)
 sectionHeader.BackgroundTransparency = 1
 sectionHeader.ZIndex = 3
 sectionHeader.Parent = targetsSection
 
-local targetsLabel = Instance.new(TextLabel)
-targetsLabel.Text = 🎯 TARGETS
+local targetsLabel = Instance.new("TextLabel")
+targetsLabel.Text = "🎯 TARGETS"
 targetsLabel.Size = UDim2.new(0.5, 0, 1, 0)
 targetsLabel.Position = UDim2.new(0, 14, 0, 0)
 targetsLabel.BackgroundTransparency = 1
@@ -447,8 +450,8 @@ targetsLabel.TextXAlignment = Enum.TextXAlignment.Left
 targetsLabel.ZIndex = 3
 targetsLabel.Parent = sectionHeader
 
-local onlineLabel = Instance.new(TextLabel)
-onlineLabel.Name = OnlineLabel
+local onlineLabel = Instance.new("TextLabel")
+onlineLabel.Name = "OnlineLabel"
 onlineLabel.Size = UDim2.new(0.5, -14, 1, 0)
 onlineLabel.Position = UDim2.new(0.5, 0, 0, 0)
 onlineLabel.BackgroundTransparency = 1
@@ -460,7 +463,7 @@ onlineLabel.ZIndex = 3
 onlineLabel.Parent = sectionHeader
 
 -- Players list
-local playersFrame = Instance.new(ScrollingFrame)
+local playersFrame = Instance.new("ScrollingFrame")
 playersFrame.Size = UDim2.new(1, -16, 1, -44)
 playersFrame.Position = UDim2.new(0, 8, 0, 38)
 playersFrame.BackgroundTransparency = 1
@@ -472,11 +475,11 @@ playersFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 playersFrame.ZIndex = 3
 playersFrame.Parent = targetsSection
 
-local listLayout = Instance.new(UIListLayout)
+local listLayout = Instance.new("UIListLayout")
 listLayout.Padding = UDim.new(0, 6)
 listLayout.Parent = playersFrame
 
-local listPadding = Instance.new(UIPadding)
+local listPadding = Instance.new("UIPadding")
 listPadding.PaddingTop = UDim.new(0, 2)
 listPadding.PaddingBottom = UDim.new(0, 2)
 listPadding.PaddingLeft = UDim.new(0, 2)
@@ -487,7 +490,7 @@ local selectedPlayers = {}
 local playerElements = {}
 
 -- Status bar
-local statusBar = Instance.new(Frame)
+local statusBar = Instance.new("Frame")
 statusBar.Size = UDim2.new(1, 0, 0, 32)
 statusBar.Position = UDim2.new(0, 0, 0, 258)
 statusBar.BackgroundColor3 = Colors.Card
@@ -497,8 +500,8 @@ statusBar.Parent = content
 addCorner(statusBar, 10)
 addStroke(statusBar, Colors.Border, 1, 0.4)
 
-local statusLabel = Instance.new(TextLabel)
-statusLabel.Name = StatusLabel
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "StatusLabel"
 statusLabel.Size = UDim2.new(1, 0, 1, 0)
 statusLabel.BackgroundTransparency = 1
 statusLabel.TextColor3 = Colors.TextDim
@@ -512,24 +515,24 @@ local function updateStatusLabel()
     for _ in pairs(selectedPlayers) do count = count + 1 end
     
     if count == 0 then
-        statusLabel.Text = ✨ No targets selected
+        statusLabel.Text = "✨ No targets selected"
         statusLabel.TextColor3 = Colors.TextDim
     else
-        statusLabel.Text = ✅  .. count ..  target .. (count  1 and s or ) ..  selected
+        statusLabel.Text = "✅ " .. count .. " target" .. (count > 1 and "s" or "") .. " selected"
         statusLabel.TextColor3 = Colors.Checkbox
     end
 end
 
 local function updateOnlineCount()
-    local count = #game.PlayersGetPlayers() - 1
-    onlineLabel.Text = 👥  .. count ..  online
+    local count = #game.Players:GetPlayers() - 1
+    onlineLabel.Text = "👥 " .. count .. " online"
 end
 
 local function createPlayerElement(player)
     if player == plr then return end
     if playerElements[player] then return end
     
-    local container = Instance.new(Frame)
+    local container = Instance.new("Frame")
     container.Name = player.Name
     container.Size = UDim2.new(1, -4, 0, 44)
     container.BackgroundColor3 = Colors.Secondary
@@ -539,7 +542,7 @@ local function createPlayerElement(player)
     container.Parent = playersFrame
     addCorner(container, 10)
     
-    local checkbox = Instance.new(Frame)
+    local checkbox = Instance.new("Frame")
     checkbox.Size = UDim2.new(0, 22, 0, 22)
     checkbox.Position = UDim2.new(0, 12, 0.5, -11)
     checkbox.BackgroundColor3 = Colors.Tertiary
@@ -549,8 +552,8 @@ local function createPlayerElement(player)
     addCorner(checkbox, 7)
     addStroke(checkbox, Colors.Border, 1.5, 0.2)
     
-    local checkmark = Instance.new(TextLabel)
-    checkmark.Text = 
+    local checkmark = Instance.new("TextLabel")
+    checkmark.Text = ""
     checkmark.Size = UDim2.new(1, 0, 1, 0)
     checkmark.BackgroundTransparency = 1
     checkmark.TextColor3 = Colors.Text
@@ -559,7 +562,7 @@ local function createPlayerElement(player)
     checkmark.ZIndex = 6
     checkmark.Parent = checkbox
     
-    local avatarHolder = Instance.new(Frame)
+    local avatarHolder = Instance.new("Frame")
     avatarHolder.Size = UDim2.new(0, 30, 0, 30)
     avatarHolder.Position = UDim2.new(0, 42, 0.5, -15)
     avatarHolder.BackgroundColor3 = Colors.Tertiary
@@ -568,7 +571,7 @@ local function createPlayerElement(player)
     addCorner(avatarHolder, 15)
     addStroke(avatarHolder, Colors.Border, 1, 0.4)
     
-    local avatar = Instance.new(ImageLabel)
+    local avatar = Instance.new("ImageLabel")
     avatar.Size = UDim2.new(1, -2, 1, -2)
     avatar.Position = UDim2.new(0, 1, 0, 1)
     avatar.BackgroundTransparency = 1
@@ -578,21 +581,21 @@ local function createPlayerElement(player)
     
     task.spawn(function()
         local success, result = pcall(function()
-            return game.PlayersGetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+            return game.Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
         end)
         if success and avatar and avatar.Parent then
             avatar.Image = result
         end
     end)
     
-    local nameContainer = Instance.new(Frame)
+    local nameContainer = Instance.new("Frame")
     nameContainer.Size = UDim2.new(1, -90, 1, 0)
     nameContainer.Position = UDim2.new(0, 80, 0, 0)
     nameContainer.BackgroundTransparency = 1
     nameContainer.ZIndex = 5
     nameContainer.Parent = container
     
-    local nameLabel = Instance.new(TextLabel)
+    local nameLabel = Instance.new("TextLabel")
     nameLabel.Text = player.DisplayName
     nameLabel.Size = UDim2.new(1, 0, 0.55, 0)
     nameLabel.Position = UDim2.new(0, 0, 0, 4)
@@ -605,8 +608,8 @@ local function createPlayerElement(player)
     nameLabel.ZIndex = 6
     nameLabel.Parent = nameContainer
     
-    local usernameLabel = Instance.new(TextLabel)
-    usernameLabel.Text = @ .. player.Name
+    local usernameLabel = Instance.new("TextLabel")
+    usernameLabel.Text = "@" .. player.Name
     usernameLabel.Size = UDim2.new(1, 0, 0.45, 0)
     usernameLabel.Position = UDim2.new(0, 0, 0.5, 2)
     usernameLabel.BackgroundTransparency = 1
@@ -618,10 +621,10 @@ local function createPlayerElement(player)
     usernameLabel.ZIndex = 6
     usernameLabel.Parent = nameContainer
     
-    local clickBtn = Instance.new(TextButton)
+    local clickBtn = Instance.new("TextButton")
     clickBtn.Size = UDim2.new(1, 0, 1, 0)
     clickBtn.BackgroundTransparency = 1
-    clickBtn.Text = 
+    clickBtn.Text = ""
     clickBtn.ZIndex = 7
     clickBtn.Parent = container
     
@@ -630,38 +633,38 @@ local function createPlayerElement(player)
     
     local function updateVisual()
         if selectedPlayers[player] then
-            TweenServiceCreate(container, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Selected, BackgroundTransparency = 0.1})Play()
-            TweenServiceCreate(checkbox, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Checkbox})Play()
-            checkboxFindFirstChildOfClass(UIStroke).Color = Colors.Checkbox
-            checkboxFindFirstChildOfClass(UIStroke).Transparency = 0
-            checkmark.Text = ✓
+            TweenService:Create(container, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Selected, BackgroundTransparency = 0.1}):Play()
+            TweenService:Create(checkbox, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Checkbox}):Play()
+            checkbox:FindFirstChildOfClass("UIStroke").Color = Colors.Checkbox
+            checkbox:FindFirstChildOfClass("UIStroke").Transparency = 0
+            checkmark.Text = "✓"
             containerData.baseColor = Colors.Selected
         else
-            TweenServiceCreate(container, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Secondary, BackgroundTransparency = 0.2})Play()
-            TweenServiceCreate(checkbox, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Tertiary})Play()
-            checkboxFindFirstChildOfClass(UIStroke).Color = Colors.Border
-            checkboxFindFirstChildOfClass(UIStroke).Transparency = 0.2
-            checkmark.Text = 
+            TweenService:Create(container, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Secondary, BackgroundTransparency = 0.2}):Play()
+            TweenService:Create(checkbox, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Tertiary}):Play()
+            checkbox:FindFirstChildOfClass("UIStroke").Color = Colors.Border
+            checkbox:FindFirstChildOfClass("UIStroke").Transparency = 0.2
+            checkmark.Text = ""
             containerData.baseColor = Colors.Secondary
         end
     end
     
-    clickBtn.MouseButton1ClickConnect(function()
+    clickBtn.MouseButton1Click:Connect(function()
         selectedPlayers[player] = not selectedPlayers[player] or nil
         updateVisual()
         updateStatusLabel()
     end)
     
-    clickBtn.MouseEnterConnect(function()
+    clickBtn.MouseEnter:Connect(function()
         containerData.isHovered = true
     end)
     
-    clickBtn.MouseLeaveConnect(function()
+    clickBtn.MouseLeave:Connect(function()
         containerData.isHovered = false
         if selectedPlayers[player] then
-            TweenServiceCreate(container, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Selected})Play()
+            TweenService:Create(container, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Selected}):Play()
         else
-            TweenServiceCreate(container, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Secondary})Play()
+            TweenService:Create(container, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Secondary}):Play()
         end
     end)
     
@@ -681,7 +684,7 @@ local function removePlayerElement(player)
                 break
             end
         end
-        playerElements[player]Destroy()
+        playerElements[player]:Destroy()
         playerElements[player] = nil
     end
     updateStatusLabel()
@@ -692,33 +695,33 @@ local function removePlayerElement(player)
 end
 
 local function initPlayerList()
-    for _, player in pairs(game.PlayersGetPlayers()) do
+    for _, player in pairs(game.Players:GetPlayers()) do
         createPlayerElement(player)
     end
     updateOnlineCount()
     updateStatusLabel()
 end
 
-game.Players.PlayerAddedConnect(function(player)
+game.Players.PlayerAdded:Connect(function(player)
     task.wait(0.5)
     createPlayerElement(player)
     updateOnlineCount()
 end)
 
-game.Players.PlayerRemovingConnect(function(player)
+game.Players.PlayerRemoving:Connect(function(player)
     removePlayerElement(player)
 end)
 
 -- Action buttons
-local actionBtns = Instance.new(Frame)
+local actionBtns = Instance.new("Frame")
 actionBtns.Size = UDim2.new(1, 0, 0, 38)
 actionBtns.Position = UDim2.new(0, 0, 0, 298)
 actionBtns.BackgroundTransparency = 1
 actionBtns.ZIndex = 2
 actionBtns.Parent = content
 
-local selectAllBtn = Instance.new(TextButton)
-selectAllBtn.Text = Select All
+local selectAllBtn = Instance.new("TextButton")
+selectAllBtn.Text = "Select All"
 selectAllBtn.Size = UDim2.new(0.48, 0, 1, 0)
 selectAllBtn.Position = UDim2.new(0, 0, 0, 0)
 selectAllBtn.BackgroundColor3 = Colors.Tertiary
@@ -732,17 +735,17 @@ addCorner(selectAllBtn, 10)
 addStroke(selectAllBtn, Colors.Border, 1, 0.4)
 addSyncedHoverEffect(selectAllBtn, Colors.Tertiary)
 
-selectAllBtn.MouseButton1ClickConnect(function()
+selectAllBtn.MouseButton1Click:Connect(function()
     for player, element in pairs(playerElements) do
         selectedPlayers[player] = true
-        local checkbox = elementFindFirstChild(Frame)
+        local checkbox = element:FindFirstChild("Frame")
         if checkbox then
-            TweenServiceCreate(element, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Selected, BackgroundTransparency = 0.1})Play()
-            TweenServiceCreate(checkbox, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Checkbox})Play()
-            local stroke = checkboxFindFirstChildOfClass(UIStroke)
+            TweenService:Create(element, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Selected, BackgroundTransparency = 0.1}):Play()
+            TweenService:Create(checkbox, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Checkbox}):Play()
+            local stroke = checkbox:FindFirstChildOfClass("UIStroke")
             if stroke then stroke.Color = Colors.Checkbox stroke.Transparency = 0 end
-            local check = checkboxFindFirstChildOfClass(TextLabel)
-            if check then check.Text = ✓ end
+            local check = checkbox:FindFirstChildOfClass("TextLabel")
+            if check then check.Text = "✓" end
         end
         for _, data in ipairs(syncedButtons) do
             if data.button == element then
@@ -754,8 +757,8 @@ selectAllBtn.MouseButton1ClickConnect(function()
     updateStatusLabel()
 end)
 
-local clearBtn = Instance.new(TextButton)
-clearBtn.Text = Clear All
+local clearBtn = Instance.new("TextButton")
+clearBtn.Text = "Clear All"
 clearBtn.Size = UDim2.new(0.48, 0, 1, 0)
 clearBtn.Position = UDim2.new(0.52, 0, 0, 0)
 clearBtn.BackgroundColor3 = Colors.Tertiary
@@ -769,17 +772,17 @@ addCorner(clearBtn, 10)
 addStroke(clearBtn, Colors.Border, 1, 0.4)
 addSyncedHoverEffect(clearBtn, Colors.Tertiary)
 
-clearBtn.MouseButton1ClickConnect(function()
+clearBtn.MouseButton1Click:Connect(function()
     for player, element in pairs(playerElements) do
         selectedPlayers[player] = nil
-        local checkbox = elementFindFirstChild(Frame)
+        local checkbox = element:FindFirstChild("Frame")
         if checkbox then
-            TweenServiceCreate(element, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Secondary, BackgroundTransparency = 0.2})Play()
-            TweenServiceCreate(checkbox, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Tertiary})Play()
-            local stroke = checkboxFindFirstChildOfClass(UIStroke)
+            TweenService:Create(element, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Secondary, BackgroundTransparency = 0.2}):Play()
+            TweenService:Create(checkbox, TweenInfo.new(0.12), {BackgroundColor3 = Colors.Tertiary}):Play()
+            local stroke = checkbox:FindFirstChildOfClass("UIStroke")
             if stroke then stroke.Color = Colors.Border stroke.Transparency = 0.2 end
-            local check = checkboxFindFirstChildOfClass(TextLabel)
-            if check then check.Text =  end
+            local check = checkbox:FindFirstChildOfClass("TextLabel")
+            if check then check.Text = "" end
         end
         for _, data in ipairs(syncedButtons) do
             if data.button == element then
@@ -795,8 +798,8 @@ end)
 local spamActive = false
 local spamThreads = {}
 
-local toggleBtn = Instance.new(TextButton)
-toggleBtn.Text = ⚡️ START
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Text = "⚡️ START"
 toggleBtn.Size = UDim2.new(1, 0, 0, 52)
 toggleBtn.Position = UDim2.new(0, 0, 0, 344)
 toggleBtn.BackgroundColor3 = Colors.Danger
@@ -810,14 +813,14 @@ addCorner(toggleBtn, 14)
 
 local toggleStroke = addStroke(toggleBtn, Colors.Danger, 2, 0.2)
 
-local toggleGlow = Instance.new(Frame)
+local toggleGlow = Instance.new("Frame")
 toggleGlow.Size = UDim2.new(1, 4, 1, 4)
 toggleGlow.Position = UDim2.new(0, -2, 0, -2)
 toggleGlow.BackgroundTransparency = 1
 toggleGlow.ZIndex = 1
 toggleGlow.Parent = toggleBtn
 
-local toggleGlowStroke = Instance.new(UIStroke)
+local toggleGlowStroke = Instance.new("UIStroke")
 toggleGlowStroke.Color = Colors.Danger
 toggleGlowStroke.Thickness = 3
 toggleGlowStroke.Transparency = 0.6
@@ -828,30 +831,35 @@ addCorner(toggleGlow, 16)
 -- Attack
 local function attackPlayer(player)
     if not player or not player.Character then return end
-    local wHrp = player.CharacterFindFirstChild(HumanoidRootPart)
+    local wHrp = player.Character:FindFirstChild("HumanoidRootPart")
     if not wHrp then return end
+    
+    if not tool or not tool.Parent then
+        tool = char:FindFirstChild("RPG") or plr.Backpack:FindFirstChild("RPG")
+        if not tool then return end
+    end
     
     local pos = wHrp.Position
     local dir = (pos - hrp.Position).Unit
     
-    fxFireServer(tool, false)
+    fx:FireServer(tool, false)
     
     local fireArgs = {
-        [Direction] = dir,
-        [Settings] = {[expShake] = {[fadeInTime] = 0.05, [magnitude] = 3, [rotInfluence] = Vector3.new(0.4, 0, 0.4), [fadeOutTime] = 0.5, [posInfluence] = Vector3.new(1, 1, 0), [roughness] = 3}, [gravity] = Vector3.new(0, -20, 0), [HelicopterDamage] = 450, [FireRate] = 15, [VehicleDamage] = 350, [ExpName] = RPG, [RocketAmount] = 1, [ExpRadius] = 12, [BoatDamage] = 300, [TankDamage] = 300, [Acceleration] = 8, [ShieldDamage] = 170, [Distance] = 4000, [PlaneDamage] = 500, [GunshipDamage] = 170, [velocity] = 200, [ExplosionDamage] = 120},
-        [Origin] = hrp.Position, [PlrFired] = plr, [Vehicle] = tool,
-        [RocketModel] = game.ReplicatedStorage.RocketSystem.Rockets[RPG Rocket], [Weapon] = tool,
+        ["Direction"] = dir,
+        ["Settings"] = {["expShake"] = {["fadeInTime"] = 0.05, ["magnitude"] = 3, ["rotInfluence"] = Vector3.new(0.4, 0, 0.4), ["fadeOutTime"] = 0.5, ["posInfluence"] = Vector3.new(1, 1, 0), ["roughness"] = 3}, ["gravity"] = Vector3.new(0, -20, 0), ["HelicopterDamage"] = 450, ["FireRate"] = 15, ["VehicleDamage"] = 350, ["ExpName"] = "RPG", ["RocketAmount"] = 1, ["ExpRadius"] = 12, ["BoatDamage"] = 300, ["TankDamage"] = 300, ["Acceleration"] = 8, ["ShieldDamage"] = 170, ["Distance"] = 4000, ["PlaneDamage"] = 500, ["GunshipDamage"] = 170, ["velocity"] = 200, ["ExplosionDamage"] = 120},
+        ["Origin"] = hrp.Position, ["PlrFired"] = plr, ["Vehicle"] = tool,
+        ["RocketModel"] = game.ReplicatedStorage.RocketSystem.Rockets["RPG Rocket"], ["Weapon"] = tool,
     }
     
-    pcall(function() fireFireServer(fireArgs) end)
+    pcall(function() fire:FireServer(fireArgs) end)
     
-    local hitArgs = {[Normal] = Vector3.new(0, 1, 0), [HitPart] = wHrp, [Position] = pos, [Label] = plr.Name .. Rocket .. cnt, [Vehicle] = tool, [Player] = plr, [Weapon] = tool}
-    pcall(function() hitFireServer(hitArgs) end)
+    local hitArgs = {["Normal"] = Vector3.new(0, 1, 0), ["HitPart"] = wHrp, ["Position"] = pos, ["Label"] = plr.Name .. "Rocket" .. cnt, ["Vehicle"] = tool, ["Player"] = plr, ["Weapon"] = tool}
+    pcall(function() hit:FireServer(hitArgs) end)
     cnt = cnt + 1
 end
 
 -- Toggle
-toggleBtn.MouseButton1ClickConnect(function()
+toggleBtn.MouseButton1Click:Connect(function()
     spamActive = not spamActive
     
     if spamActive then
@@ -859,20 +867,20 @@ toggleBtn.MouseButton1ClickConnect(function()
         for _ in pairs(selectedPlayers) do count = count + 1 end
         
         if count == 0 then
-            statusLabel.Text = ❌ Select targets first!
+            statusLabel.Text = "❌ Select targets first!"
             statusLabel.TextColor3 = Colors.Danger
             spamActive = false
             return
         end
         
-        toggleBtn.Text = ⏹️ STOP
-        TweenServiceCreate(toggleBtn, TweenInfo.new(0.25), {BackgroundColor3 = Colors.Success})Play()
-        TweenServiceCreate(toggleStroke, TweenInfo.new(0.25), {Color = Colors.Success})Play()
-        TweenServiceCreate(toggleGlowStroke, TweenInfo.new(0.25), {Color = Colors.Success, Transparency = 0.4})Play()
-        statusLabel.Text = 🔥 Active —  .. count ..  target .. (count  1 and s or )
+        toggleBtn.Text = "⏹️ STOP"
+        TweenService:Create(toggleBtn, TweenInfo.new(0.25), {BackgroundColor3 = Colors.Success}):Play()
+        TweenService:Create(toggleStroke, TweenInfo.new(0.25), {Color = Colors.Success}):Play()
+        TweenService:Create(toggleGlowStroke, TweenInfo.new(0.25), {Color = Colors.Success, Transparency = 0.4}):Play()
+        statusLabel.Text = "🔥 Active — " .. count .. " target" .. (count > 1 and "s" or "")
         statusLabel.TextColor3 = Colors.Success
         
-        spamThreads[main] = task.spawn(function()
+        spamThreads["main"] = task.spawn(function()
             while spamActive do
                 for player in pairs(selectedPlayers) do
                     if player and player.Character then
@@ -884,7 +892,7 @@ toggleBtn.MouseButton1ClickConnect(function()
         end)
         
         for i = 1, 3 do
-            spamThreads[t .. i] = task.spawn(function()
+            spamThreads["t" .. i] = task.spawn(function()
                 while spamActive do
                     for player in pairs(selectedPlayers) do
                         if player and player.Character then task.spawn(attackPlayer, player) end
@@ -894,11 +902,11 @@ toggleBtn.MouseButton1ClickConnect(function()
             end)
         end
     else
-        toggleBtn.Text = ⚡️ START
-        TweenServiceCreate(toggleBtn, TweenInfo.new(0.25), {BackgroundColor3 = Colors.Danger})Play()
-        TweenServiceCreate(toggleStroke, TweenInfo.new(0.25), {Color = Colors.Danger})Play()
-        TweenServiceCreate(toggleGlowStroke, TweenInfo.new(0.25), {Color = Colors.Danger, Transparency = 0.6})Play()
-        statusLabel.Text = 💤 Stopped
+        toggleBtn.Text = "⚡️ START"
+        TweenService:Create(toggleBtn, TweenInfo.new(0.25), {BackgroundColor3 = Colors.Danger}):Play()
+        TweenService:Create(toggleStroke, TweenInfo.new(0.25), {Color = Colors.Danger}):Play()
+        TweenService:Create(toggleGlowStroke, TweenInfo.new(0.25), {Color = Colors.Danger, Transparency = 0.6}):Play()
+        statusLabel.Text = "💤 Stopped"
         statusLabel.TextColor3 = Colors.TextDim
         
         for _, thread in pairs(spamThreads) do pcall(task.cancel, thread) end
@@ -907,50 +915,50 @@ toggleBtn.MouseButton1ClickConnect(function()
 end)
 
 -- Close
-closeBtn.MouseButton1ClickConnect(function()
+closeBtn.MouseButton1Click:Connect(function()
     spamActive = false
     for _, thread in pairs(spamThreads) do pcall(task.cancel, thread) end
-    if animationConnection then animationConnectionDisconnect() end
+    if animationConnection then animationConnection:Disconnect() end
     
-    TweenServiceCreate(frame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+    TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, 0),
         Position = UDim2.new(0.5, 0, 0.5, 0)
-    })Play()
-    TweenServiceCreate(outerGlowStroke, TweenInfo.new(0.2), {Transparency = 1})Play()
+    }):Play()
+    TweenService:Create(outerGlowStroke, TweenInfo.new(0.2), {Transparency = 1}):Play()
     task.wait(0.3)
-    screenGuiDestroy()
+    screenGui:Destroy()
 end)
 
 -- Minimize
 local isMinimized = false
 local originalSize = frame.Size
 
-minimizeBtn.MouseButton1ClickConnect(function()
+minimizeBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     
     if isMinimized then
-        TweenServiceCreate(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 360, 0, 60)})Play()
-        minimizeBtn.Text = +
+        TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 360, 0, 60)}):Play()
+        minimizeBtn.Text = "+"
         content.Visible = false
     else
-        TweenServiceCreate(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = originalSize})Play()
-        minimizeBtn.Text = −
+        TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = originalSize}):Play()
+        minimizeBtn.Text = "−"
         task.wait(0.15)
         content.Visible = true
     end
 end)
 
 -- Respawn
-plr.CharacterAddedConnect(function(newChar)
+plr.CharacterAdded:Connect(function(newChar)
     char = newChar
-    hrp = newCharWaitForChild(HumanoidRootPart)
-    tool = newCharWaitForChild(RPG, 5)
+    hrp = newChar:WaitForChild("HumanoidRootPart")
+    tool = newChar:WaitForChild("RPG", 5)
     if not tool then
-        local backpack = plrFindFirstChild(Backpack)
-        if backpack then tool = backpackFindFirstChild(RPG) end
+        local backpack = plr:FindFirstChild("Backpack")
+        if backpack then tool = backpack:FindFirstChild("RPG") end
     end
 end)
 
 initPlayerList()
 
-print(✅ RPG Spammer Pro loaded)
+print("✅ RPG Spammer Pro loaded")
