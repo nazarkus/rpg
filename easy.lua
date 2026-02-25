@@ -402,7 +402,7 @@ icon.ZIndex = 3
 icon.Parent = iconBg
 
 local title = Instance.new("TextLabel")
-title.Text = "RPG Spammer"
+title.Text = "NAZARKUS RPG"
 title.Size = UDim2.new(1, -130, 0, 24)
 title.Position = UDim2.new(0, 60, 0, 10)
 title.BackgroundTransparency = 1
