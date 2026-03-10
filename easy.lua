@@ -1,5 +1,5 @@
 -- ============================================================
--- NAZARKUS RPG v8.0 — Combined Player + Vehicle Spammer
+-- NAZARKUS RPG v8.1 — Combined Player + Vehicle Spammer
 -- ============================================================
 
 for _,n in ipairs({"RPGSpammerGUI","RPGVehicleGUI","NazarkusRPG"}) do
@@ -237,6 +237,76 @@ local function isShielded(player)
 end
 
 -- ============================================================
+-- SHIELD BREAKER (ремоты из первого скрипта)
+-- ============================================================
+local function breakShield(player)
+    if not player then return end
+
+    task.spawn(function()
+        local weapon = findRPG()
+        if not weapon then return end
+
+        local tycoonsRoot = workspace:FindFirstChild("Tycoon")
+        if not tycoonsRoot then return end
+        local tycoons = tycoonsRoot:FindFirstChild("Tycoons")
+        if not tycoons then return end
+
+        local targetTycoon = nil
+        for _, tycoon in ipairs(tycoons:GetChildren()) do
+            for _, v in ipairs(tycoon:GetDescendants()) do
+                if v:IsA("ObjectValue") and v.Name == "Owner" and v.Value == player then
+                    targetTycoon = tycoon
+                    break
+                end
+            end
+            if targetTycoon then break end
+        end
+        if not targetTycoon then return end
+
+        local purchased = targetTycoon:FindFirstChild("PurchasedObjects")
+        if not purchased then return end
+
+        local baseShield = purchased:FindFirstChild("Base Shield")
+        if not baseShield then return end
+
+        local shieldFolder = baseShield:FindFirstChild("Shield")
+        if not shieldFolder then return end
+
+        for attempt = 1, 50 do
+            if not shieldFolder or not shieldFolder.Parent then break end
+
+            local parts = {}
+            for _, part in ipairs(shieldFolder:GetChildren()) do
+                if part:IsA("BasePart") and part.Parent then
+                    table.insert(parts, part)
+                end
+            end
+            if #parts == 0 then break end
+
+            for _, part in ipairs(parts) do
+                if part and part.Parent then
+                    local position = part.Position
+                    pcall(function()
+                        hitEv:FireServer({
+                            Normal = Vector3.new(0, 1, 0),
+                            HitPart = part,
+                            Position = position,
+                            Label = plr.Name .. "ShieldBreak" .. rCnt,
+                            Vehicle = weapon,
+                            Player = plr,
+                            Weapon = weapon,
+                        })
+                    end)
+                    rCnt = rCnt + 1
+                end
+            end
+
+            task.wait()
+        end
+    end)
+end
+
+-- ============================================================
 -- VEHICLE SCANNING
 -- ============================================================
 local function getOwnerData(model)
@@ -436,7 +506,6 @@ for i = 1, 6 do
     table.insert(dots, {f=d, sx=(math.random()-0.5)*0.25, sy=(math.random()-0.5)*0.25, ph=math.random()*math.pi*2})
 end
 
--- Animation loop (single, shared)
 local animConn = RS.RenderStepped:Connect(function(dt)
     gradTime = gradTime + dt * 1.8
     ug1.Rotation = gradTime * 25
@@ -497,7 +566,6 @@ UIS.InputChanged:Connect(function(i)
     end
 end)
 
--- Icon
 local iBg = Instance.new("Frame")
 iBg.Size = UDim2.new(0,38,0,38)
 iBg.Position = UDim2.new(0,14,0,10)
@@ -516,7 +584,6 @@ iLbl.Font = Enum.Font.SourceSans
 iLbl.ZIndex = 3
 iLbl.Parent = iBg
 
--- Title
 local tLbl = Instance.new("TextLabel")
 tLbl.Text = "NAZARKUS RPG"
 tLbl.Size = UDim2.new(1,-130,0,24)
@@ -529,7 +596,6 @@ tLbl.TextXAlignment = Enum.TextXAlignment.Left
 tLbl.ZIndex = 2
 tLbl.Parent = titleBar
 
--- Version
 local vBg = Instance.new("Frame")
 vBg.Size = UDim2.new(0,45,0,18)
 vBg.Position = UDim2.new(0,60,0,35)
@@ -540,7 +606,7 @@ vBg.Parent = titleBar
 cr(vBg, 9)
 
 local vLbl = Instance.new("TextLabel")
-vLbl.Text = "v8.0"
+vLbl.Text = "v8.1"
 vLbl.Size = UDim2.new(1,0,1,0)
 vLbl.BackgroundTransparency = 1
 vLbl.TextColor3 = C.Txt
@@ -549,7 +615,6 @@ vLbl.TextSize = 10
 vLbl.ZIndex = 3
 vLbl.Parent = vBg
 
--- Close / Minimize
 local btnC = Instance.new("Frame")
 btnC.Size = UDim2.new(0,70,0,34)
 btnC.Position = UDim2.new(1,-84,0,12)
@@ -624,7 +689,6 @@ tabV.ZIndex = 3
 tabV.Parent = tabBar
 cr(tabV, 8)
 
--- Content frames
 local pContent = Instance.new("Frame")
 pContent.Size = UDim2.new(1,-28,1,-100)
 pContent.Position = UDim2.new(0,14,0,93)
@@ -666,7 +730,6 @@ tabV.MouseButton1Click:Connect(function() switchTab("vehicles") end)
 -- PLAYERS TAB
 -- ============================================================
 
--- List section
 local pListSec = Instance.new("Frame")
 pListSec.Size = UDim2.new(1,0,0,250)
 pListSec.BackgroundColor3 = C.Card
@@ -729,7 +792,6 @@ pPad.PaddingLeft = UDim.new(0,2)
 pPad.PaddingRight = UDim.new(0,2)
 pPad.Parent = pScroll
 
--- Player status bar
 local pStatBar = Instance.new("Frame")
 pStatBar.Size = UDim2.new(1,0,0,32)
 pStatBar.Position = UDim2.new(0,0,0,258)
@@ -815,18 +877,45 @@ local function createPlrEl(player)
     wlBtn.Parent = row
     cr(wlBtn, 8)
 
-    local shIcon = Instance.new("TextLabel")
+    -- ⚡ SHIELD BREAK BUTTON
+    local shIcon = Instance.new("TextButton")
     shIcon.Name = "ShieldIcon"
     shIcon.Text = "⚡"
-    shIcon.Size = UDim2.new(0,18,0,18)
-    shIcon.Position = UDim2.new(1,-62,0.5,-9)
-    shIcon.BackgroundTransparency = 1
+    shIcon.Size = UDim2.new(0,26,0,26)
+    shIcon.Position = UDim2.new(1,-68,0.5,-13)
+    shIcon.BackgroundColor3 = C.Shd
+    shIcon.BackgroundTransparency = 0.4
     shIcon.TextColor3 = C.Shd
     shIcon.Font = Enum.Font.SourceSans
-    shIcon.TextSize = 14
-    shIcon.ZIndex = 6
+    shIcon.TextSize = 16
+    shIcon.ZIndex = 8
     shIcon.Visible = false
+    shIcon.AutoButtonColor = false
     shIcon.Parent = row
+    cr(shIcon, 8)
+
+    shIcon.MouseEnter:Connect(function()
+        TS:Create(shIcon, TweenInfo.new(0.15), {
+            BackgroundTransparency = 0,
+            BackgroundColor3 = Color3.fromRGB(220, 190, 50),
+        }):Play()
+    end)
+    shIcon.MouseLeave:Connect(function()
+        TS:Create(shIcon, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.4,
+            BackgroundColor3 = C.Shd,
+        }):Play()
+    end)
+
+    shIcon.MouseButton1Click:Connect(function()
+        TS:Create(shIcon, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 80, 80)}):Play()
+        task.delay(0.3, function()
+            if shIcon and shIcon.Parent then
+                TS:Create(shIcon, TweenInfo.new(0.2), {BackgroundColor3 = C.Shd}):Play()
+            end
+        end)
+        breakShield(player)
+    end)
 
     local avH = Instance.new("Frame")
     avH.Size = UDim2.new(0,30,0,30)
@@ -942,7 +1031,6 @@ local function createPlrEl(player)
 
     plrEl[player] = row
 
-    -- Shield indicator
     if isShielded(player) then shIcon.Visible = true end
 
     task.defer(function()
@@ -990,13 +1078,13 @@ pSelAll.MouseButton1Click:Connect(function()
     for p, el in pairs(plrEl) do
         if not wlP[p] then
             selP[p] = true
-            local cb = el:FindFirstChild("CB")
-            if cb then
+            local cb2 = el:FindFirstChild("CB")
+            if cb2 then
                 TS:Create(el, TweenInfo.new(0.12), {BackgroundColor3=C.Sel, BackgroundTransparency=0.1}):Play()
-                TS:Create(cb, TweenInfo.new(0.12), {BackgroundColor3=C.Chk}):Play()
-                local s = cb:FindFirstChildOfClass("UIStroke")
+                TS:Create(cb2, TweenInfo.new(0.12), {BackgroundColor3=C.Chk}):Play()
+                local s = cb2:FindFirstChildOfClass("UIStroke")
                 if s then s.Color = C.Chk; s.Transparency = 0 end
-                local t = cb:FindFirstChildOfClass("TextLabel")
+                local t = cb2:FindFirstChildOfClass("TextLabel")
                 if t then t.Text = "✓" end
             end
             for _, d in ipairs(syncBtns) do
@@ -1023,13 +1111,13 @@ cr(pClear, 10); sk(pClear, C.Brd, 1, 0.4); hfx(pClear, C.Ter)
 pClear.MouseButton1Click:Connect(function()
     for p, el in pairs(plrEl) do
         selP[p] = nil
-        local cb = el:FindFirstChild("CB")
-        if cb then
+        local cb2 = el:FindFirstChild("CB")
+        if cb2 then
             TS:Create(el, TweenInfo.new(0.12), {BackgroundColor3=C.Sec, BackgroundTransparency=0.2}):Play()
-            TS:Create(cb, TweenInfo.new(0.12), {BackgroundColor3=C.Ter}):Play()
-            local s = cb:FindFirstChildOfClass("UIStroke")
+            TS:Create(cb2, TweenInfo.new(0.12), {BackgroundColor3=C.Ter}):Play()
+            local s = cb2:FindFirstChildOfClass("UIStroke")
             if s then s.Color = C.Brd; s.Transparency = 0.2 end
-            local t = cb:FindFirstChildOfClass("TextLabel")
+            local t = cb2:FindFirstChildOfClass("TextLabel")
             if t then t.Text = "" end
         end
         for _, d in ipairs(syncBtns) do
@@ -1099,7 +1187,7 @@ pTGS.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; pTGS.Parent = pTGlow
 cr(pTGlow, 16)
 
 local pInfo = Instance.new("TextLabel")
-pInfo.Text = "🛡️ Shield detection active | ⚡ = shielded"
+pInfo.Text = "🛡️ Shield detection active | ⚡ = click to break shield"
 pInfo.Size = UDim2.new(1,0,0,22)
 pInfo.Position = UDim2.new(0,0,0,402)
 pInfo.BackgroundTransparency = 1
@@ -1217,7 +1305,6 @@ vPad.PaddingTop = UDim.new(0,2); vPad.PaddingBottom = UDim.new(0,2)
 vPad.PaddingLeft = UDim.new(0,2); vPad.PaddingRight = UDim.new(0,2)
 vPad.Parent = vScroll
 
--- Vehicle status bar
 local vStatBar = Instance.new("Frame")
 vStatBar.Size = UDim2.new(1,0,0,32)
 vStatBar.Position = UDim2.new(0,0,0,268)
@@ -1245,12 +1332,10 @@ local function updVStat()
     end
 end
 
--- RichText hex helpers for vehicle owner info
 local ownHex = string.format("#%02X%02X%02X", math.floor(C.Own.R*255), math.floor(C.Own.G*255), math.floor(C.Own.B*255))
 local basHex = string.format("#%02X%02X%02X", math.floor(C.Bas.R*255), math.floor(C.Bas.G*255), math.floor(C.Bas.B*255))
 local nooHex = string.format("#%02X%02X%02X", math.floor(C.NoO.R*255), math.floor(C.NoO.G*255), math.floor(C.NoO.B*255))
 
--- Create vehicle element
 local function makeVehRow(tgt)
     local mdl = tgt.Model
 
@@ -1264,25 +1349,25 @@ local function makeVehRow(tgt)
     row.Parent = vScroll
     cr(row, 10)
 
-    local cb = Instance.new("Frame")
-    cb.Name = "CB"
-    cb.Size = UDim2.new(0,22,0,22)
-    cb.Position = UDim2.new(0,10,0.5,-11)
-    cb.BackgroundColor3 = C.Ter
-    cb.BorderSizePixel = 0
-    cb.ZIndex = 5
-    cb.Parent = row
-    cr(cb, 7); sk(cb, C.Brd, 1.5, 0.2)
+    local cb2 = Instance.new("Frame")
+    cb2.Name = "CB"
+    cb2.Size = UDim2.new(0,22,0,22)
+    cb2.Position = UDim2.new(0,10,0.5,-11)
+    cb2.BackgroundColor3 = C.Ter
+    cb2.BorderSizePixel = 0
+    cb2.ZIndex = 5
+    cb2.Parent = row
+    cr(cb2, 7); sk(cb2, C.Brd, 1.5, 0.2)
 
-    local cm = Instance.new("TextLabel")
-    cm.Text = ""
-    cm.Size = UDim2.new(1,0,1,0)
-    cm.BackgroundTransparency = 1
-    cm.TextColor3 = C.Txt
-    cm.Font = Enum.Font.GothamBold
-    cm.TextSize = 14
-    cm.ZIndex = 6
-    cm.Parent = cb
+    local cm2 = Instance.new("TextLabel")
+    cm2.Text = ""
+    cm2.Size = UDim2.new(1,0,1,0)
+    cm2.BackgroundTransparency = 1
+    cm2.TextColor3 = C.Txt
+    cm2.Font = Enum.Font.GothamBold
+    cm2.TextSize = 14
+    cm2.ZIndex = 6
+    cm2.Parent = cb2
 
     local badge = Instance.new("Frame")
     badge.Size = UDim2.new(0,38,0,30)
@@ -1303,25 +1388,25 @@ local function makeVehRow(tgt)
     bTxt.ZIndex = 6
     bTxt.Parent = badge
 
-    local nc = Instance.new("Frame")
-    nc.Size = UDim2.new(1,-86,1,0)
-    nc.Position = UDim2.new(0,82,0,0)
-    nc.BackgroundTransparency = 1
-    nc.ZIndex = 5
-    nc.Parent = row
+    local nc2 = Instance.new("Frame")
+    nc2.Size = UDim2.new(1,-86,1,0)
+    nc2.Position = UDim2.new(0,82,0,0)
+    nc2.BackgroundTransparency = 1
+    nc2.ZIndex = 5
+    nc2.Parent = row
 
-    local nl = Instance.new("TextLabel")
-    nl.Text = tgt.Name
-    nl.Size = UDim2.new(1,0,0,16)
-    nl.Position = UDim2.new(0,0,0,5)
-    nl.BackgroundTransparency = 1
-    nl.TextColor3 = C.Txt
-    nl.Font = Enum.Font.GothamBold
-    nl.TextSize = 13
-    nl.TextXAlignment = Enum.TextXAlignment.Left
-    nl.TextTruncate = Enum.TextTruncate.AtEnd
-    nl.ZIndex = 6
-    nl.Parent = nc
+    local nl2 = Instance.new("TextLabel")
+    nl2.Text = tgt.Name
+    nl2.Size = UDim2.new(1,0,0,16)
+    nl2.Position = UDim2.new(0,0,0,5)
+    nl2.BackgroundTransparency = 1
+    nl2.TextColor3 = C.Txt
+    nl2.Font = Enum.Font.GothamBold
+    nl2.TextSize = 13
+    nl2.TextXAlignment = Enum.TextXAlignment.Left
+    nl2.TextTruncate = Enum.TextTruncate.AtEnd
+    nl2.ZIndex = 6
+    nl2.Parent = nc2
 
     local ol = Instance.new("TextLabel")
     ol.Size = UDim2.new(1,0,0,14)
@@ -1333,7 +1418,7 @@ local function makeVehRow(tgt)
     ol.TextTruncate = Enum.TextTruncate.AtEnd
     ol.ZIndex = 6
     ol.RichText = true
-    ol.Parent = nc
+    ol.Parent = nc2
 
     if tgt.DisplayName and tgt.DisplayName ~= "" then
         local t = '<font color="'..ownHex..'">'..tgt.DisplayName..'</font>'
@@ -1359,16 +1444,16 @@ local function makeVehRow(tgt)
         local s = selV[mdl] ~= nil
         if s then
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3=C.Sel, BackgroundTransparency=0.1}):Play()
-            TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3=C.Chk}):Play()
-            cb:FindFirstChildOfClass("UIStroke").Color = C.Chk
-            cb:FindFirstChildOfClass("UIStroke").Transparency = 0
-            cm.Text = "✓"; rd.baseColor = C.Sel
+            TS:Create(cb2, TweenInfo.new(0.15), {BackgroundColor3=C.Chk}):Play()
+            cb2:FindFirstChildOfClass("UIStroke").Color = C.Chk
+            cb2:FindFirstChildOfClass("UIStroke").Transparency = 0
+            cm2.Text = "✓"; rd.baseColor = C.Sel
         else
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3=C.Sec, BackgroundTransparency=0.2}):Play()
-            TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3=C.Ter}):Play()
-            cb:FindFirstChildOfClass("UIStroke").Color = C.Brd
-            cb:FindFirstChildOfClass("UIStroke").Transparency = 0.2
-            cm.Text = ""; rd.baseColor = C.Sec
+            TS:Create(cb2, TweenInfo.new(0.15), {BackgroundColor3=C.Ter}):Play()
+            cb2:FindFirstChildOfClass("UIStroke").Color = C.Brd
+            cb2:FindFirstChildOfClass("UIStroke").Transparency = 0.2
+            cm2.Text = ""; rd.baseColor = C.Sec
         end
     end
 
@@ -1384,7 +1469,6 @@ local function makeVehRow(tgt)
     vehEl[mdl] = {row=row, rd=rd, vis=vis, tgt=tgt}
 end
 
--- Refresh vehicle list
 local function refreshVeh()
     for m, e in pairs(vehEl) do
         for i = #syncBtns, 1, -1 do
@@ -1634,8 +1718,6 @@ minBtn.MouseButton1Click:Connect(function()
         TS:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size=origSize}):Play()
         minBtn.Text = "−"; tabBar.Visible = true
         task.wait(0.15)
-        switchTab(pContent.Visible and "players" or "vehicles")
-        -- restore correct tab
         pContent.Visible = true; vContent.Visible = false
         switchTab("players")
     end
@@ -1671,7 +1753,6 @@ fSh.Position = UDim2.new(0,-20,0,-20)
 fSh.ZIndex = 9
 fSh.Parent = floatBtn
 
--- Float button drag
 local fd, fdi, fds, fsp
 floatBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1723,7 +1804,6 @@ end)
 -- INIT
 -- ============================================================
 
--- Player list
 for _, p in pairs(Players:GetPlayers()) do
     createPlrEl(p)
 end
