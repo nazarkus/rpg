@@ -1,6 +1,4 @@
--- ============================================================
--- NAZARKUS RPG v8.3 — Clean Dark UI + Shield Fix
--- ============================================================
+
 
 for _,n in ipairs({"RPGSpammerGUI","RPGVehicleGUI","NazarkusRPG"}) do
     local old = game.CoreGui:FindFirstChild(n)
@@ -493,7 +491,7 @@ titleLbl.ZIndex = 5
 titleLbl.Parent = sidebar
 
 local subtitleLbl = Instance.new("TextLabel")
-subtitleLbl.Text = "RPG v8.3"
+subtitleLbl.Text = "RPG"
 subtitleLbl.Size = UDim2.new(1, 0, 0, 16)
 subtitleLbl.Position = UDim2.new(0, 0, 0, 50)
 subtitleLbl.BackgroundTransparency = 1
