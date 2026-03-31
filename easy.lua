@@ -37,40 +37,22 @@ end)
 local rCnt = 0
 
 local rSettings = {
-    expShake = {
-        fadeInTime = 0.05,
-        magnitude = 3,
-        rotInfluence = Vector3.new(0.4, 0, 0.4),
-        fadeOutTime = 0.5,
-        posInfluence = Vector3.new(1, 1, 0),
-        roughness = 3
-    },
-    gravity = Vector3.new(0, -20, 0),
-    HelicopterDamage = 450,
-    FireRate = 15,
-    VehicleDamage = 350,
-    ExpName = "RPG",
-    RocketAmount = 1,
-    ExpRadius = 12,
-    BoatDamage = 300,
-    TankDamage = 300,
-    Acceleration = 8,
-    ShieldDamage = 170,
-    Distance = 4000,
-    PlaneDamage = 500,
-    GunshipDamage = 170,
-    velocity = 200,
-    ExplosionDamage = 120,
+    expShake = {fadeInTime=0.05, magnitude=3, rotInfluence=Vector3.new(0.4,0,0.4),
+        fadeOutTime=0.5, posInfluence=Vector3.new(1,1,0), roughness=3},
+    gravity=Vector3.new(0,-20,0), HelicopterDamage=450, FireRate=15, VehicleDamage=350,
+    ExpName="RPG", RocketAmount=1, ExpRadius=12, BoatDamage=300, TankDamage=300,
+    Acceleration=8, ShieldDamage=170, Distance=4000, PlaneDamage=500,
+    GunshipDamage=170, velocity=200, ExplosionDamage=120,
 }
 
 local C = {
     Bg       = Color3.fromRGB(5, 5, 10),
     Panel    = Color3.fromRGB(12, 12, 20),
-    Card     = Color3.fromRGB(18, 18, 30),
-    CardH    = Color3.fromRGB(24, 24, 40),
+    Card     = Color3.fromRGB(20, 20, 34),
+    CardH    = Color3.fromRGB(28, 28, 46),
     Input    = Color3.fromRGB(14, 14, 24),
-    Border   = Color3.fromRGB(30, 30, 48),
-    BorderL  = Color3.fromRGB(40, 40, 60),
+    Border   = Color3.fromRGB(38, 38, 56),
+    BorderL  = Color3.fromRGB(48, 48, 68),
     Accent   = Color3.fromRGB(98, 55, 210),
     AccentL  = Color3.fromRGB(130, 90, 240),
     AccentD  = Color3.fromRGB(70, 35, 160),
@@ -79,11 +61,11 @@ local C = {
     Danger   = Color3.fromRGB(220, 50, 50),
     DangerD  = Color3.fromRGB(160, 30, 30),
     Warn     = Color3.fromRGB(230, 170, 30),
-    Text     = Color3.fromRGB(220, 220, 230),
+    Text     = Color3.fromRGB(225, 225, 235),
     TextSub  = Color3.fromRGB(120, 120, 150),
     TextMute = Color3.fromRGB(70, 70, 95),
     White    = Color3.fromRGB(255, 255, 255),
-    Sel      = Color3.fromRGB(25, 22, 50),
+    Sel      = Color3.fromRGB(28, 24, 55),
     SelBrd   = Color3.fromRGB(98, 55, 210),
     WL       = Color3.fromRGB(50, 80, 140),
     WLA      = Color3.fromRGB(80, 130, 220),
@@ -95,7 +77,7 @@ local vFolders = {}
 pcall(function()
     local gs = workspace:FindFirstChild("Game Systems")
     if gs then
-        for _, n in ipairs({"Helicopter", "Plane", "Gunship", "Boat", "Tank", "Hovercraft"}) do
+        for _, n in ipairs({"Helicopter","Plane","Gunship","Boat","Tank","Hovercraft"}) do
             vFolders[n] = gs:FindFirstChild(n .. " Workspace")
         end
     end
@@ -109,57 +91,49 @@ local vCol = {
     Tank       = Color3.fromRGB(150, 110, 40),
     Hovercraft = Color3.fromRGB(110, 70, 170),
 }
-
 local vShort = {
-    Helicopter = "HELI",
-    Plane = "PLANE",
-    Gunship = "GNSHP",
-    Boat = "BOAT",
-    Tank = "TANK",
-    Hovercraft = "HOVER",
+    Helicopter="HELI", Plane="PLANE", Gunship="GNSHP",
+    Boat="BOAT", Tank="TANK", Hovercraft="HOVER",
 }
 
-local selP = {}
-local wlP = {}
-local plrEl = {}
-local selV = {}
-local vehInst = {}
-local vehEl = {}
-local pSpamOn = false
-local pThreads = {}
-local vSpamOn = false
-local vThreads = {}
+local selP, wlP, plrEl = {}, {}, {}
+local selV, vehInst, vehEl = {}, {}, {}
+local pSpamOn, pThreads = false, {}
+local vSpamOn, vThreads = false, {}
 
 local function cr(p, r)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r or 6)
-    c.Parent = p
-    return c
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 6); c.Parent = p; return c
 end
 
 local function sk(p, col, th, tr)
     local s = Instance.new("UIStroke")
-    s.Color = col or C.Border
-    s.Thickness = th or 1
-    s.Transparency = tr or 0
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Parent = p
-    return s
+    s.Color = col or C.Border; s.Thickness = th or 1; s.Transparency = tr or 0
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = p; return s
 end
 
 local function pad(p, t, b, l, r)
-    local pd = Instance.new("UIPadding")
-    pd.Parent = p
-    pd.PaddingTop = UDim.new(0, t or 0)
-    pd.PaddingBottom = UDim.new(0, b or 0)
-    pd.PaddingLeft = UDim.new(0, l or 0)
-    pd.PaddingRight = UDim.new(0, r or 0)
+    local pd = Instance.new("UIPadding"); pd.Parent = p
+    pd.PaddingTop = UDim.new(0, t or 0); pd.PaddingBottom = UDim.new(0, b or 0)
+    pd.PaddingLeft = UDim.new(0, l or 0); pd.PaddingRight = UDim.new(0, r or 0)
     return pd
+end
+
+local function addRowGradient(parent)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(0.15, Color3.fromRGB(240, 240, 245)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 190, 205)),
+    })
+    g.Rotation = 90
+    g.Parent = parent
+    return g
 end
 
 local function getPlayerBase(player)
     if not player then return nil end
     if player.Team then return player.Team.Name end
+    local result = nil
     pcall(function()
         local tycoonsRoot = workspace:FindFirstChild("Tycoon")
         if tycoonsRoot then
@@ -168,14 +142,16 @@ local function getPlayerBase(player)
                 for _, tycoon in ipairs(tycoons:GetChildren()) do
                     for _, v in ipairs(tycoon:GetDescendants()) do
                         if v:IsA("ObjectValue") and v.Name == "Owner" and v.Value == player then
-                            return tycoon.Name
+                            result = tycoon.Name
                         end
                     end
+                    if result then break end
                 end
             end
         end
     end)
-    for _, attr in ipairs({"Base", "Team", "Faction", "Side"}) do
+    if result then return result end
+    for _, attr in ipairs({"Base","Team","Faction","Side"}) do
         local val = nil
         pcall(function() val = player:GetAttribute(attr) end)
         if val and type(val) == "string" and val ~= "" then return val end
@@ -202,11 +178,6 @@ end
 
 local function playerHasRPG(player)
     if not player then return false end
-    pcall(function()
-        if player.Character and player.Character:FindFirstChild("RPG") then return true end
-        local bp = player:FindFirstChild("Backpack")
-        if bp and bp:FindFirstChild("RPG") then return true end
-    end)
     local ch = player.Character
     if ch then
         for _, child in pairs(ch:GetChildren()) do
@@ -238,12 +209,12 @@ local function isShielded(player)
     if not player or not player.Character then return false end
     local ch = player.Character
     if ch:FindFirstChildOfClass("ForceField") then return true end
-    for _, attr in ipairs({"Shielded", "Shield", "IsShielded", "HasShield", "Invincible", "Invulnerable"}) do
+    for _, attr in ipairs({"Shielded","Shield","IsShielded","HasShield","Invincible","Invulnerable"}) do
         if ch:GetAttribute(attr) == true then return true end
     end
     local hum = ch:FindFirstChildOfClass("Humanoid")
     if hum then
-        for _, attr in ipairs({"Shielded", "Shield", "IsShielded", "Invincible"}) do
+        for _, attr in ipairs({"Shielded","Shield","IsShielded","Invincible"}) do
             if hum:GetAttribute(attr) == true then return true end
         end
     end
@@ -258,7 +229,7 @@ local function isShielded(player)
             end
         end
     end
-    local kw = {"shield", "barrier", "bubble", "forcefield", "dome", "protect"}
+    local kw = {"shield","barrier","bubble","forcefield","dome","protect"}
     for _, child in pairs(ch:GetChildren()) do
         local n = child.Name:lower()
         for _, k in pairs(kw) do
@@ -272,22 +243,17 @@ local function isShielded(player)
     if rp then
         for _, child in pairs(rp:GetChildren()) do
             local n = child.Name:lower()
-            for _, k in pairs(kw) do
-                if n:find(k) then return true end
-            end
+            for _, k in pairs(kw) do if n:find(k) then return true end end
         end
     end
     return false
 end
 
 local shieldBreakCooldown = {}
-
 local function breakShield(player)
     if not player or not rpgReady then return end
-
     if shieldBreakCooldown[player] and tick() - shieldBreakCooldown[player] < 2 then return end
     shieldBreakCooldown[player] = tick()
-
     task.spawn(function()
         local weapon = findRPG()
         if not weapon then return end
@@ -299,8 +265,7 @@ local function breakShield(player)
         for _, tycoon in ipairs(tycoons:GetChildren()) do
             for _, v in ipairs(tycoon:GetDescendants()) do
                 if v:IsA("ObjectValue") and v.Name == "Owner" and v.Value == player then
-                    targetTycoon = tycoon
-                    break
+                    targetTycoon = tycoon; break
                 end
             end
             if targetTycoon then break end
@@ -312,37 +277,26 @@ local function breakShield(player)
         if not baseShield then return end
         local shieldFolder = baseShield:FindFirstChild("Shield")
         if not shieldFolder then return end
-
-        for attempt = 1, 15 do
+        for _ = 1, 15 do
             if not shieldFolder or not shieldFolder.Parent then break end
             local parts = {}
             for _, part in ipairs(shieldFolder:GetChildren()) do
-                if part:IsA("BasePart") and part.Parent then
-                    table.insert(parts, part)
-                end
+                if part:IsA("BasePart") and part.Parent then table.insert(parts, part) end
             end
             if #parts == 0 then break end
-
             local hitCount = 0
             for _, part in ipairs(parts) do
                 if hitCount >= 3 then break end
                 if part and part.Parent then
                     pcall(function()
                         hitEv:FireServer({
-                            Normal = Vector3.new(0, 1, 0),
-                            HitPart = part,
-                            Position = part.Position,
-                            Label = plr.Name .. "SB" .. rCnt,
-                            Vehicle = weapon,
-                            Player = plr,
-                            Weapon = weapon,
+                            Normal = Vector3.new(0,1,0), HitPart = part, Position = part.Position,
+                            Label = plr.Name.."SB"..rCnt, Vehicle = weapon, Player = plr, Weapon = weapon,
                         })
                     end)
-                    rCnt = rCnt + 1
-                    hitCount = hitCount + 1
+                    rCnt += 1; hitCount += 1
                 end
             end
-
             task.wait(0.15)
         end
     end)
@@ -351,12 +305,10 @@ end
 local function getOwnerData(model)
     local data = {username = nil, displayName = nil, base = nil}
     pcall(function()
-        for _, attr in ipairs({"Owner", "Pilot", "KillOwner"}) do
+        for _, attr in ipairs({"Owner","Pilot","KillOwner"}) do
             if not data.username then
                 local v = model:GetAttribute(attr)
-                if v and type(v) == "string" and v ~= "" then
-                    data.username = v
-                end
+                if v and type(v) == "string" and v ~= "" then data.username = v end
             end
         end
         if data.username then
@@ -364,9 +316,7 @@ local function getOwnerData(model)
             if p then
                 data.displayName = p.DisplayName
                 data.base = getPlayerBase(p)
-            else
-                data.displayName = data.username
-            end
+            else data.displayName = data.username end
         end
     end)
     return data
@@ -380,20 +330,13 @@ local function scanVehicles()
                 for _, mdl in ipairs(folder:GetChildren()) do
                     if mdl:IsA("Model") then
                         local part = mdl:FindFirstChild("HumanoidRootPart")
-                            or mdl:FindFirstChild("Main")
-                            or mdl:FindFirstChild("RootPart")
-                            or mdl:FindFirstChild("Head")
-                            or mdl.PrimaryPart
+                            or mdl:FindFirstChild("Main") or mdl:FindFirstChild("RootPart")
+                            or mdl:FindFirstChild("Head") or mdl.PrimaryPart
                         if part then
                             local od = getOwnerData(mdl)
                             table.insert(vehInst, {
-                                Name = mdl.Name,
-                                Type = typ,
-                                Model = mdl,
-                                HRP = part,
-                                Username = od.username,
-                                DisplayName = od.displayName,
-                                Base = od.base,
+                                Name = mdl.Name, Type = typ, Model = mdl, HRP = part,
+                                Username = od.username, DisplayName = od.displayName, Base = od.base,
                             })
                         end
                     end
@@ -407,8 +350,7 @@ end
 local function fireRocket(targetPos, hitPart)
     if not rpgReady then return false end
     if not tool or not tool.Parent then
-        tool = findRPG()
-        if not tool then return false end
+        tool = findRPG(); if not tool then return false end
     end
     if not hrp or not hrp.Parent then
         char = plr.Character
@@ -420,28 +362,17 @@ local function fireRocket(targetPos, hitPart)
     pcall(function() fxEv:FireServer(tool, false) end)
     pcall(function()
         fireEv:FireServer({
-            Direction = dir,
-            Settings = rSettings,
-            Origin = hrp.Position,
-            PlrFired = plr,
-            Vehicle = tool,
-            RocketModel = rocketModel,
-            Weapon = tool,
+            Direction = dir, Settings = rSettings, Origin = hrp.Position,
+            PlrFired = plr, Vehicle = tool, RocketModel = rocketModel, Weapon = tool,
         })
     end)
     pcall(function()
         hitEv:FireServer({
-            Normal = Vector3.new(0, 1, 0),
-            HitPart = hitPart,
-            Position = targetPos,
-            Label = plr.Name .. "R" .. rCnt,
-            Vehicle = tool,
-            Player = plr,
-            Weapon = tool,
+            Normal = Vector3.new(0,1,0), HitPart = hitPart, Position = targetPos,
+            Label = plr.Name.."R"..rCnt, Vehicle = tool, Player = plr, Weapon = tool,
         })
     end)
-    rCnt = rCnt + 1
-    return true
+    rCnt += 1; return true
 end
 
 local function attackPlayer(player)
@@ -457,16 +388,16 @@ end
 
 local function attackVehicle(td)
     if not td or not td.Model or not td.Model.Parent then return false end
-    local h = td.HRP
-    if not h or not h.Parent then return false end
+    local h = td.HRP; if not h or not h.Parent then return false end
     local pos = h.Position
-    local off = {Boat = 3, Tank = 1.5, Hovercraft = 2, Plane = 1}
-    if off[td.Type] then
-        pos = pos + Vector3.new(0, off[td.Type], 0)
-    end
+    local off = {Boat=3, Tank=1.5, Hovercraft=2, Plane=1}
+    if off[td.Type] then pos = pos + Vector3.new(0, off[td.Type], 0) end
     return fireRocket(pos, h)
 end
 
+-- ============================================================
+-- GUI
+-- ============================================================
 local gui = Instance.new("ScreenGui")
 gui.Name = "NazarkusRPG"
 gui.Parent = game.CoreGui
@@ -474,8 +405,8 @@ gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 520, 0, 480)
-main.Position = UDim2.new(0.5, -260, 0.5, -240)
+main.Size = UDim2.new(0, 520, 0, 450)
+main.Position = UDim2.new(0.5, -260, 0.5, -225)
 main.BackgroundColor3 = C.Bg
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
@@ -484,6 +415,9 @@ main.Parent = gui
 cr(main, 10)
 sk(main, C.Border, 1, 0.3)
 
+-- ============================================================
+-- SIDEBAR
+-- ============================================================
 local sidebar = Instance.new("Frame")
 sidebar.Size = UDim2.new(0, 130, 1, 0)
 sidebar.BackgroundColor3 = C.Panel
@@ -520,10 +454,19 @@ titleLbl.TextSize = 16
 titleLbl.ZIndex = 5
 titleLbl.Parent = sidebar
 
+local rpgDot = Instance.new("Frame")
+rpgDot.Size = UDim2.new(0, 8, 0, 8)
+rpgDot.Position = UDim2.new(0.5, -22, 0, 54)
+rpgDot.BackgroundColor3 = rpgReady and C.Success or C.Danger
+rpgDot.BorderSizePixel = 0
+rpgDot.ZIndex = 5
+rpgDot.Parent = sidebar
+cr(rpgDot, 4)
+
 local subtitleLbl = Instance.new("TextLabel")
 subtitleLbl.Text = "RPG"
 subtitleLbl.Size = UDim2.new(1, 0, 0, 16)
-subtitleLbl.Position = UDim2.new(0, 0, 0, 50)
+subtitleLbl.Position = UDim2.new(0, 0, 0, 49)
 subtitleLbl.BackgroundTransparency = 1
 subtitleLbl.TextColor3 = C.Accent
 subtitleLbl.Font = Enum.Font.GothamBold
@@ -531,15 +474,7 @@ subtitleLbl.TextSize = 11
 subtitleLbl.ZIndex = 5
 subtitleLbl.Parent = sidebar
 
-local rpgDot = Instance.new("Frame")
-rpgDot.Size = UDim2.new(0, 8, 0, 8)
-rpgDot.Position = UDim2.new(0, 20, 0, 54)
-rpgDot.BackgroundColor3 = rpgReady and C.Success or C.Danger
-rpgDot.BorderSizePixel = 0
-rpgDot.ZIndex = 5
-rpgDot.Parent = sidebar
-cr(rpgDot, 4)
-
+-- Nav buttons
 local navBtns = {}
 local currentTab = "players"
 
@@ -553,17 +488,16 @@ local function createNavBtn(text, id, yPos)
     btn.TextColor3 = id == "players" and C.White or C.TextSub
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 13
-    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.TextXAlignment = Enum.TextXAlignment.Center
     btn.AutoButtonColor = false
     btn.BorderSizePixel = 0
     btn.ZIndex = 5
     btn.Parent = sidebar
     cr(btn, 6)
-    pad(btn, 0, 0, 14, 0)
 
     local indicator = Instance.new("Frame")
-    indicator.Size = UDim2.new(0, 3, 0, 20)
-    indicator.Position = UDim2.new(0, 0, 0.5, -10)
+    indicator.Size = UDim2.new(0, 3, 0, 22)
+    indicator.Position = UDim2.new(0, 0, 0.5, -11)
     indicator.BackgroundColor3 = C.Accent
     indicator.BorderSizePixel = 0
     indicator.ZIndex = 6
@@ -579,7 +513,6 @@ local function createNavBtn(text, id, yPos)
             btn.TextColor3 = C.Text
         end
     end)
-
     btn.MouseLeave:Connect(function()
         if currentTab ~= id then
             TS:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
@@ -626,6 +559,9 @@ local function updateMyBase()
     end
 end
 
+-- ============================================================
+-- CONTENT AREA
+-- ============================================================
 local contentArea = Instance.new("Frame")
 contentArea.Size = UDim2.new(1, -130, 1, 0)
 contentArea.Position = UDim2.new(0, 130, 0, 0)
@@ -651,14 +587,10 @@ cr(closeBtn, 13)
 closeBtn.MouseEnter:Connect(function()
     TS:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(255, 40, 40)}):Play()
 end)
-
 closeBtn.MouseLeave:Connect(function()
     TS:Create(closeBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.15, BackgroundColor3 = C.Danger}):Play()
 end)
-
-closeBtn.MouseButton1Click:Connect(function()
-    main.Visible = false
-end)
+closeBtn.MouseButton1Click:Connect(function() main.Visible = false end)
 
 local pContent = Instance.new("Frame")
 pContent.Size = UDim2.new(1, -24, 1, -16)
@@ -696,6 +628,7 @@ end
 navPlayers.MouseButton1Click:Connect(function() switchTab("players") end)
 navVehicles.MouseButton1Click:Connect(function() switchTab("vehicles") end)
 
+-- Drag
 local titleDrag = Instance.new("Frame")
 titleDrag.Size = UDim2.new(1, -40, 0, 50)
 titleDrag.BackgroundTransparency = 1
@@ -703,46 +636,41 @@ titleDrag.ZIndex = 7
 titleDrag.Parent = contentArea
 
 local _dr, _di, _ds, _dp
-
 titleDrag.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        _dr = true
-        _ds = i.Position
-        _dp = main.Position
+        _dr = true; _ds = i.Position; _dp = main.Position
         i.Changed:Connect(function()
             if i.UserInputState == Enum.UserInputState.End then _dr = false end
         end)
     end
 end)
-
 titleDrag.InputChanged:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseMovement then _di = i end
 end)
-
 UIS.InputChanged:Connect(function(i)
     if i == _di and _dr then
         local d = i.Position - _ds
         TS:Create(main, TweenInfo.new(0.06), {
-            Position = UDim2.new(_dp.X.Scale, _dp.X.Offset + d.X, _dp.Y.Scale, _dp.Y.Offset + d.Y)
+            Position = UDim2.new(_dp.X.Scale, _dp.X.Offset+d.X, _dp.Y.Scale, _dp.Y.Offset+d.Y)
         }):Play()
     end
 end)
 
 sidebar.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        _dr = true
-        _ds = i.Position
-        _dp = main.Position
+        _dr = true; _ds = i.Position; _dp = main.Position
         i.Changed:Connect(function()
             if i.UserInputState == Enum.UserInputState.End then _dr = false end
         end)
     end
 end)
-
 sidebar.InputChanged:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseMovement then _di = i end
 end)
 
+-- ============================================================
+-- PLAYERS TAB
+-- ============================================================
 local pTitle = Instance.new("TextLabel")
 pTitle.Text = "PLAYERS"
 pTitle.Size = UDim2.new(0.5, 0, 0, 26)
@@ -756,7 +684,7 @@ pTitle.ZIndex = 5
 pTitle.Parent = pContent
 
 local onlineLbl = Instance.new("TextLabel")
-onlineLbl.Size = UDim2.new(0.5, -4, 0, 26)
+onlineLbl.Size = UDim2.new(0.5, -48, 0, 26)
 onlineLbl.Position = UDim2.new(0.5, 0, 0, 8)
 onlineLbl.BackgroundTransparency = 1
 onlineLbl.TextColor3 = C.TextMute
@@ -767,18 +695,18 @@ onlineLbl.ZIndex = 5
 onlineLbl.Parent = pContent
 
 local searchFrame = Instance.new("Frame")
-searchFrame.Size = UDim2.new(1, 0, 0, 28)
+searchFrame.Size = UDim2.new(1, 0, 0, 30)
 searchFrame.Position = UDim2.new(0, 0, 0, 38)
 searchFrame.BackgroundColor3 = C.Card
 searchFrame.BorderSizePixel = 0
 searchFrame.ZIndex = 4
 searchFrame.Parent = pContent
-cr(searchFrame, 6)
-sk(searchFrame, C.Border, 1, 0.5)
+cr(searchFrame, 8)
+sk(searchFrame, C.Border, 1, 0.4)
 
 local searchIcon = Instance.new("TextLabel")
 searchIcon.Text = "🔍"
-searchIcon.Size = UDim2.new(0, 24, 1, 0)
+searchIcon.Size = UDim2.new(0, 26, 1, 0)
 searchIcon.Position = UDim2.new(0, 6, 0, 0)
 searchIcon.BackgroundTransparency = 1
 searchIcon.TextColor3 = C.TextMute
@@ -790,8 +718,8 @@ searchIcon.Parent = searchFrame
 local searchBox = Instance.new("TextBox")
 searchBox.PlaceholderText = "Search player..."
 searchBox.Text = ""
-searchBox.Size = UDim2.new(1, -36, 1, 0)
-searchBox.Position = UDim2.new(0, 30, 0, 0)
+searchBox.Size = UDim2.new(1, -38, 1, 0)
+searchBox.Position = UDim2.new(0, 32, 0, 0)
 searchBox.BackgroundTransparency = 1
 searchBox.TextColor3 = C.Text
 searchBox.PlaceholderColor3 = C.TextMute
@@ -803,7 +731,6 @@ searchBox.ZIndex = 5
 searchBox.Parent = searchFrame
 
 local searchQuery = ""
-
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     searchQuery = searchBox.Text:lower()
     for player, el in pairs(plrEl) do
@@ -815,25 +742,20 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         end
     end
     task.defer(function()
-        local scroll = pContent:FindFirstChild("PlayerScroll")
-        if scroll then
-            local lay = scroll:FindFirstChildOfClass("UIListLayout")
-            if lay then
-                scroll.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 8)
-            end
-        end
+        local lay = pContent:FindFirstChild("PlayerScroll") and pContent.PlayerScroll:FindFirstChildOfClass("UIListLayout")
+        if lay then pContent.PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 8) end
     end)
 end)
 
 local pScroll = Instance.new("ScrollingFrame")
 pScroll.Name = "PlayerScroll"
-pScroll.Size = UDim2.new(1, 0, 0, 210)
-pScroll.Position = UDim2.new(0, 0, 0, 70)
-pScroll.BackgroundColor3 = C.Panel
+pScroll.Size = UDim2.new(1, 0, 0, 200)
+pScroll.Position = UDim2.new(0, 0, 0, 72)
+pScroll.BackgroundColor3 = C.Bg
 pScroll.BackgroundTransparency = 0.3
-pScroll.ScrollBarThickness = 2
+pScroll.ScrollBarThickness = 3
 pScroll.ScrollBarImageColor3 = C.Accent
-pScroll.ScrollBarImageTransparency = 0.5
+pScroll.ScrollBarImageTransparency = 0.4
 pScroll.BorderSizePixel = 0
 pScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 pScroll.ZIndex = 4
@@ -841,14 +763,12 @@ pScroll.Parent = pContent
 cr(pScroll, 8)
 sk(pScroll, C.Border, 1, 0.5)
 
-local pLay = Instance.new("UIListLayout")
-pLay.Padding = UDim.new(0, 2)
-pLay.Parent = pScroll
+local pLay = Instance.new("UIListLayout"); pLay.Padding = UDim.new(0, 3); pLay.Parent = pScroll
 pad(pScroll, 4, 4, 4, 4)
 
 local pStatLbl = Instance.new("TextLabel")
 pStatLbl.Size = UDim2.new(1, 0, 0, 26)
-pStatLbl.Position = UDim2.new(0, 0, 0, 286)
+pStatLbl.Position = UDim2.new(0, 0, 0, 278)
 pStatLbl.BackgroundColor3 = C.Card
 pStatLbl.BackgroundTransparency = 0.3
 pStatLbl.TextColor3 = C.TextMute
@@ -859,77 +779,68 @@ pStatLbl.Parent = pContent
 cr(pStatLbl, 6)
 
 local function updPStat()
-    local c = 0
-    for _ in pairs(selP) do c = c + 1 end
-    local w = 0
-    for _ in pairs(wlP) do w = w + 1 end
+    local c = 0; for _ in pairs(selP) do c += 1 end
+    local w = 0; for _ in pairs(wlP) do w += 1 end
     if c == 0 and w == 0 then
-        pStatLbl.Text = "No targets selected"
-        pStatLbl.TextColor3 = C.TextMute
+        pStatLbl.Text = "No targets selected"; pStatLbl.TextColor3 = C.TextMute
     elseif c == 0 then
-        pStatLbl.Text = w .. " whitelisted"
-        pStatLbl.TextColor3 = C.WLA
+        pStatLbl.Text = w.." whitelisted"; pStatLbl.TextColor3 = C.WLA
     else
-        local extra = w > 0 and ("  ·  " .. w .. " safe") or ""
-        pStatLbl.Text = c .. " target" .. (c > 1 and "s" or "") .. extra
-        pStatLbl.TextColor3 = C.Success
+        local extra = w > 0 and ("  ·  "..w.." safe") or ""
+        pStatLbl.Text = c.." target"..(c>1 and "s" or "")..extra; pStatLbl.TextColor3 = C.Success
     end
 end
 
 local function updOnline()
     local count = #Players:GetPlayers() - 1
-    onlineLbl.Text = count .. " online"
-    sideInfo.Text = "RPG Spammer\n" .. count .. " players"
+    onlineLbl.Text = count.." online"
+    sideInfo.Text = "RPG Spammer\n"..count.." players"
 end
 
+-- ============================================================
+-- PLAYER ROW (volumetric)
+-- ============================================================
 local function createPlrEl(player)
     if player == plr or plrEl[player] then return end
 
     local row = Instance.new("Frame")
     row.Name = player.Name
-    row.Size = UDim2.new(1, -4, 0, 42)
+    row.Size = UDim2.new(1, -4, 0, 50)
     row.BackgroundColor3 = C.Card
     row.BorderSizePixel = 0
     row.ZIndex = 5
     row.Parent = pScroll
-    cr(row, 6)
-    local rowStroke = sk(row, C.Border, 1, 0.7)
+    cr(row, 8)
+    local rowStroke = sk(row, C.Border, 1, 0.35)
+    addRowGradient(row)
 
+    -- Checkbox
     local cb = Instance.new("Frame")
-    cb.Size = UDim2.new(0, 16, 0, 16)
-    cb.Position = UDim2.new(0, 6, 0.5, -8)
+    cb.Size = UDim2.new(0, 18, 0, 18)
+    cb.Position = UDim2.new(0, 8, 0.5, -9)
     cb.BackgroundColor3 = C.Input
-    cb.BorderSizePixel = 0
-    cb.ZIndex = 6
-    cb.Parent = row
-    cr(cb, 4)
+    cb.BorderSizePixel = 0; cb.ZIndex = 6
+    cb.Parent = row; cr(cb, 5)
     local cbStroke = sk(cb, C.Border, 1, 0)
 
     local cm = Instance.new("TextLabel")
-    cm.Text = ""
-    cm.Size = UDim2.new(1, 0, 1, 0)
-    cm.BackgroundTransparency = 1
-    cm.TextColor3 = C.White
-    cm.Font = Enum.Font.GothamBold
-    cm.TextSize = 11
-    cm.ZIndex = 7
-    cm.Parent = cb
+    cm.Text = ""; cm.Size = UDim2.new(1,0,1,0); cm.BackgroundTransparency = 1
+    cm.TextColor3 = C.White; cm.Font = Enum.Font.GothamBold; cm.TextSize = 12
+    cm.ZIndex = 7; cm.Parent = cb
 
+    -- Avatar
     local avFrame = Instance.new("Frame")
-    avFrame.Size = UDim2.new(0, 26, 0, 26)
-    avFrame.Position = UDim2.new(0, 28, 0.5, -13)
+    avFrame.Size = UDim2.new(0, 32, 0, 32)
+    avFrame.Position = UDim2.new(0, 32, 0.5, -16)
     avFrame.BackgroundColor3 = C.Input
-    avFrame.ZIndex = 6
-    avFrame.Parent = row
-    cr(avFrame, 13)
+    avFrame.ZIndex = 6; avFrame.Parent = row; cr(avFrame, 16)
+    sk(avFrame, C.Border, 1, 0.6)
 
     local av = Instance.new("ImageLabel")
     av.Size = UDim2.new(1, -2, 1, -2)
     av.Position = UDim2.new(0, 1, 0, 1)
-    av.BackgroundTransparency = 1
-    av.ZIndex = 7
-    av.Parent = avFrame
-    cr(av, 12)
+    av.BackgroundTransparency = 1; av.ZIndex = 7
+    av.Parent = avFrame; cr(av, 15)
 
     task.spawn(function()
         local ok, img = pcall(Players.GetUserThumbnailAsync, Players, player.UserId,
@@ -937,85 +848,70 @@ local function createPlrEl(player)
         if ok and av and av.Parent then av.Image = img end
     end)
 
+    -- Name
     local nl = Instance.new("TextLabel")
     nl.Text = player.DisplayName
-    nl.Size = UDim2.new(0, 90, 0, 14)
-    nl.Position = UDim2.new(0, 60, 0, 5)
-    nl.BackgroundTransparency = 1
-    nl.TextColor3 = C.Text
-    nl.Font = Enum.Font.GothamBold
-    nl.TextSize = 11
+    nl.Size = UDim2.new(0, 100, 0, 16)
+    nl.Position = UDim2.new(0, 70, 0, 7)
+    nl.BackgroundTransparency = 1; nl.TextColor3 = C.Text
+    nl.Font = Enum.Font.GothamBold; nl.TextSize = 12
     nl.TextXAlignment = Enum.TextXAlignment.Left
     nl.TextTruncate = Enum.TextTruncate.AtEnd
-    nl.ZIndex = 7
-    nl.Parent = row
+    nl.ZIndex = 7; nl.Parent = row
 
+    -- Info line
     local infoLbl = Instance.new("TextLabel")
     infoLbl.Name = "InfoLbl"
-    infoLbl.Size = UDim2.new(0, 180, 0, 11)
-    infoLbl.Position = UDim2.new(0, 60, 0, 22)
+    infoLbl.Size = UDim2.new(0, 180, 0, 12)
+    infoLbl.Position = UDim2.new(0, 70, 0, 27)
     infoLbl.BackgroundTransparency = 1
-    infoLbl.Font = Enum.Font.Gotham
-    infoLbl.TextSize = 9
+    infoLbl.Font = Enum.Font.Gotham; infoLbl.TextSize = 10
     infoLbl.TextXAlignment = Enum.TextXAlignment.Left
     infoLbl.TextTruncate = Enum.TextTruncate.AtEnd
-    infoLbl.ZIndex = 7
-    infoLbl.RichText = true
+    infoLbl.ZIndex = 7; infoLbl.RichText = true
     infoLbl.Parent = row
 
     local function updateInfo()
         if not player or not player.Parent then return end
         local parts = {}
-        table.insert(parts, '<font color="#46465F">@' .. player.Name .. '</font>')
-
+        table.insert(parts, '<font color="#50506A">@'..player.Name..'</font>')
         local base = getPlayerBase(player)
         if base then
             local bCol = getBaseColor(base)
-            local bHex = string.format("#%02X%02X%02X", math.floor(bCol.R * 255), math.floor(bCol.G * 255), math.floor(bCol.B * 255))
-            table.insert(parts, '<font color="' .. bHex .. '">' .. base .. '</font>')
+            local bHex = string.format("#%02X%02X%02X", math.floor(bCol.R*255), math.floor(bCol.G*255), math.floor(bCol.B*255))
+            table.insert(parts, '<font color="'..bHex..'">'..base..'</font>')
         end
-
         local dist = getDistanceTo(player)
-        if dist then
-            table.insert(parts, '<font color="#46465F">' .. dist .. 'm</font>')
-        end
-
-        if playerHasRPG(player) then
-            table.insert(parts, '<font color="#6237D2">RPG</font>')
-        end
-
+        if dist then table.insert(parts, '<font color="#50506A">'..dist..'m</font>') end
+        if playerHasRPG(player) then table.insert(parts, '<font color="#6237D2">RPG</font>') end
         infoLbl.Text = table.concat(parts, '  ')
     end
-
     updateInfo()
 
+    -- Shield break button
     local shBtn = Instance.new("TextButton")
     shBtn.Name = "ShieldIcon"
     shBtn.Text = "⚡"
-    shBtn.Size = UDim2.new(0, 20, 0, 20)
-    shBtn.Position = UDim2.new(1, -48, 0.5, -10)
+    shBtn.Size = UDim2.new(0, 22, 0, 22)
+    shBtn.Position = UDim2.new(1, -52, 0.5, -11)
     shBtn.BackgroundColor3 = C.Shield
     shBtn.BackgroundTransparency = 0.7
     shBtn.TextColor3 = C.Shield
     shBtn.Font = Enum.Font.SourceSans
-    shBtn.TextSize = 12
+    shBtn.TextSize = 13
     shBtn.AutoButtonColor = false
-    shBtn.BorderSizePixel = 0
-    shBtn.ZIndex = 8
-    shBtn.Visible = false
-    shBtn.Parent = row
-    cr(shBtn, 4)
+    shBtn.BorderSizePixel = 0; shBtn.ZIndex = 8
+    shBtn.Visible = false; shBtn.Parent = row
+    cr(shBtn, 5)
 
     shBtn.MouseEnter:Connect(function()
         TS:Create(shBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
         shBtn.TextColor3 = C.Bg
     end)
-
     shBtn.MouseLeave:Connect(function()
         TS:Create(shBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.7}):Play()
         shBtn.TextColor3 = C.Shield
     end)
-
     shBtn.MouseButton1Click:Connect(function()
         TS:Create(shBtn, TweenInfo.new(0.1), {BackgroundColor3 = C.Danger}):Play()
         task.delay(0.5, function()
@@ -1026,84 +922,73 @@ local function createPlrEl(player)
         breakShield(player)
     end)
 
+    -- WL button
     local wlBtn = Instance.new("TextButton")
     wlBtn.Name = "WL"
     wlBtn.Text = "🛡"
-    wlBtn.Size = UDim2.new(0, 20, 0, 20)
-    wlBtn.Position = UDim2.new(1, -24, 0.5, -10)
+    wlBtn.Size = UDim2.new(0, 22, 0, 22)
+    wlBtn.Position = UDim2.new(1, -26, 0.5, -11)
     wlBtn.BackgroundColor3 = C.Input
     wlBtn.TextColor3 = C.TextMute
     wlBtn.Font = Enum.Font.SourceSans
-    wlBtn.TextSize = 12
+    wlBtn.TextSize = 13
     wlBtn.AutoButtonColor = false
-    wlBtn.BorderSizePixel = 0
-    wlBtn.ZIndex = 8
-    wlBtn.Parent = row
-    cr(wlBtn, 4)
+    wlBtn.BorderSizePixel = 0; wlBtn.ZIndex = 8
+    wlBtn.Parent = row; cr(wlBtn, 5)
 
     local clickBtn = Instance.new("TextButton")
-    clickBtn.Size = UDim2.new(1, -54, 1, 0)
-    clickBtn.BackgroundTransparency = 1
-    clickBtn.Text = ""
-    clickBtn.ZIndex = 8
-    clickBtn.Parent = row
+    clickBtn.Size = UDim2.new(1, -58, 1, 0)
+    clickBtn.BackgroundTransparency = 1; clickBtn.Text = ""
+    clickBtn.ZIndex = 8; clickBtn.Parent = row
 
     local function vis()
         local isWL = wlP[player]
         local isSel = selP[player]
         if isWL then
-            TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 25, 45)}):Play()
-            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.WL, Transparency = 0.3}):Play()
+            TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(20, 28, 50)}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.WL, Transparency = 0.2}):Play()
             TS:Create(wlBtn, TweenInfo.new(0.15), {BackgroundColor3 = C.WL}):Play()
             wlBtn.TextColor3 = C.White
             if isSel then selP[player] = nil end
             TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3 = C.Input}):Play()
-            cbStroke.Color = C.Border
-            cm.Text = ""
+            cbStroke.Color = C.Border; cm.Text = ""
             nl.TextColor3 = C.WLA
         elseif isSel then
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = C.Sel}):Play()
-            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.SelBrd, Transparency = 0.3}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.SelBrd, Transparency = 0.15}):Play()
             TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3 = C.Accent}):Play()
-            cbStroke.Color = C.Accent
-            cm.Text = "✓"
+            cbStroke.Color = C.Accent; cm.Text = "✓"
             TS:Create(wlBtn, TweenInfo.new(0.15), {BackgroundColor3 = C.Input}):Play()
-            wlBtn.TextColor3 = C.TextMute
-            nl.TextColor3 = C.Text
+            wlBtn.TextColor3 = C.TextMute; nl.TextColor3 = C.Text
         else
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = C.Card}):Play()
-            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.Border, Transparency = 0.7}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.Border, Transparency = 0.35}):Play()
             TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3 = C.Input}):Play()
-            cbStroke.Color = C.Border
-            cm.Text = ""
+            cbStroke.Color = C.Border; cm.Text = ""
             TS:Create(wlBtn, TweenInfo.new(0.15), {BackgroundColor3 = C.Input}):Play()
-            wlBtn.TextColor3 = C.TextMute
-            nl.TextColor3 = C.Text
+            wlBtn.TextColor3 = C.TextMute; nl.TextColor3 = C.Text
         end
     end
 
     clickBtn.MouseButton1Click:Connect(function()
         if wlP[player] then return end
         selP[player] = not selP[player] or nil
-        vis()
-        updPStat()
+        vis(); updPStat()
     end)
 
     wlBtn.MouseButton1Click:Connect(function()
         wlP[player] = not wlP[player] or nil
-        vis()
-        updPStat()
+        vis(); updPStat()
     end)
 
     clickBtn.MouseEnter:Connect(function()
         if not selP[player] and not wlP[player] then
             TS:Create(row, TweenInfo.new(0.1), {BackgroundColor3 = C.CardH}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.1), {Transparency = 0.15}):Play()
         end
     end)
-
     clickBtn.MouseLeave:Connect(function() vis() end)
 
-    row:SetAttribute("_update", "yes")
     plrEl[player] = row
 
     if not row:FindFirstChild("_updateFunc") then
@@ -1121,22 +1006,18 @@ local function createPlrEl(player)
 end
 
 local function removePlrEl(player)
-    selP[player] = nil
-    wlP[player] = nil
-    if plrEl[player] then
-        plrEl[player]:Destroy()
-        plrEl[player] = nil
-    end
-    updPStat()
-    updOnline()
+    selP[player] = nil; wlP[player] = nil
+    if plrEl[player] then plrEl[player]:Destroy(); plrEl[player] = nil end
+    updPStat(); updOnline()
     task.defer(function()
         pScroll.CanvasSize = UDim2.new(0, 0, 0, pLay.AbsoluteContentSize.Y + 8)
     end)
 end
 
+-- Action buttons
 local pBtnFrame = Instance.new("Frame")
-pBtnFrame.Size = UDim2.new(1, 0, 0, 28)
-pBtnFrame.Position = UDim2.new(0, 0, 0, 318)
+pBtnFrame.Size = UDim2.new(1, 0, 0, 30)
+pBtnFrame.Position = UDim2.new(0, 0, 0, 310)
 pBtnFrame.BackgroundTransparency = 1
 pBtnFrame.ZIndex = 4
 pBtnFrame.Parent = pContent
@@ -1155,7 +1036,7 @@ local function makeSmallBtn(text, xPos, xSize, parent, col)
     btn.ZIndex = 5
     btn.Parent = parent
     cr(btn, 6)
-    sk(btn, C.Border, 1, 0.6)
+    sk(btn, C.Border, 1, 0.5)
     local base = col or C.Card
     btn.MouseEnter:Connect(function()
         TS:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = C.CardH}):Play()
@@ -1178,11 +1059,9 @@ pSelAll.MouseButton1Click:Connect(function()
         if selP[p] then
             TS:Create(el, TweenInfo.new(0.1), {BackgroundColor3 = C.Sel}):Play()
             local rs = el:FindFirstChildOfClass("UIStroke")
-            if rs then
-                TS:Create(rs, TweenInfo.new(0.1), {Color = C.SelBrd, Transparency = 0.3}):Play()
-            end
+            if rs then TS:Create(rs, TweenInfo.new(0.1), {Color = C.SelBrd, Transparency = 0.15}):Play() end
             for _, child in pairs(el:GetChildren()) do
-                if child:IsA("Frame") and child.Size == UDim2.new(0, 16, 0, 16) then
+                if child:IsA("Frame") and child.Size == UDim2.new(0, 18, 0, 18) then
                     TS:Create(child, TweenInfo.new(0.1), {BackgroundColor3 = C.Accent}):Play()
                     local cbs = child:FindFirstChildOfClass("UIStroke")
                     if cbs then cbs.Color = C.Accent end
@@ -1201,11 +1080,9 @@ pClear.MouseButton1Click:Connect(function()
         if not wlP[p] then
             TS:Create(el, TweenInfo.new(0.1), {BackgroundColor3 = C.Card}):Play()
             local rs = el:FindFirstChildOfClass("UIStroke")
-            if rs then
-                TS:Create(rs, TweenInfo.new(0.1), {Color = C.Border, Transparency = 0.7}):Play()
-            end
+            if rs then TS:Create(rs, TweenInfo.new(0.1), {Color = C.Border, Transparency = 0.35}):Play() end
             for _, child in pairs(el:GetChildren()) do
-                if child:IsA("Frame") and child.Size == UDim2.new(0, 16, 0, 16) then
+                if child:IsA("Frame") and child.Size == UDim2.new(0, 18, 0, 18) then
                     TS:Create(child, TweenInfo.new(0.1), {BackgroundColor3 = C.Input}):Play()
                     local cbs = child:FindFirstChildOfClass("UIStroke")
                     if cbs then cbs.Color = C.Border end
@@ -1236,7 +1113,7 @@ end)
 local pToggle = Instance.new("TextButton")
 pToggle.Text = "⚡  START PLAYERS"
 pToggle.Size = UDim2.new(1, 0, 0, 44)
-pToggle.Position = UDim2.new(0, 0, 0, 352)
+pToggle.Position = UDim2.new(0, 0, 0, 346)
 pToggle.BackgroundColor3 = C.AccentD
 pToggle.TextColor3 = C.White
 pToggle.Font = Enum.Font.GothamBlack
@@ -1258,62 +1135,42 @@ pGrad.Parent = pToggle
 pToggle.MouseEnter:Connect(function()
     TS:Create(pToggle, TweenInfo.new(0.15), {BackgroundColor3 = C.Accent}):Play()
 end)
-
 pToggle.MouseLeave:Connect(function()
     TS:Create(pToggle, TweenInfo.new(0.2), {BackgroundColor3 = C.AccentD}):Play()
 end)
 
-local pInfoLbl = Instance.new("TextLabel")
-pInfoLbl.Text = "Shield detection  ·  ⚡ break shield  ·  🛡 whitelist"
-pInfoLbl.Size = UDim2.new(1, 0, 0, 16)
-pInfoLbl.Position = UDim2.new(0, 0, 0, 400)
-pInfoLbl.BackgroundTransparency = 1
-pInfoLbl.TextColor3 = C.TextMute
-pInfoLbl.Font = Enum.Font.Gotham
-pInfoLbl.TextSize = 9
-pInfoLbl.ZIndex = 4
-pInfoLbl.Parent = pContent
-
 pToggle.MouseButton1Click:Connect(function()
     pSpamOn = not pSpamOn
     if pSpamOn then
-        local n = 0
-        for _ in pairs(selP) do n = n + 1 end
+        local n = 0; for _ in pairs(selP) do n += 1 end
         if n == 0 then
-            pStatLbl.Text = "Select targets first!"
-            pStatLbl.TextColor3 = C.Danger
-            pSpamOn = false
-            return
+            pStatLbl.Text = "Select targets first!"; pStatLbl.TextColor3 = C.Danger
+            pSpamOn = false; return
         end
         if not rpgReady then
-            pStatLbl.Text = "RPG system not found!"
-            pStatLbl.TextColor3 = C.Danger
-            pSpamOn = false
-            return
+            pStatLbl.Text = "RPG system not found!"; pStatLbl.TextColor3 = C.Danger
+            pSpamOn = false; return
         end
         pToggle.Text = "⏹  STOP PLAYERS"
         pGrad.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 110, 75)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 75, 55)),
         })
-        pStatLbl.Text = "Active — " .. n .. " target" .. (n > 1 and "s" or "")
+        pStatLbl.Text = "Active — "..n.." target"..(n>1 and "s" or "")
         pStatLbl.TextColor3 = C.Success
 
         pThreads["main"] = task.spawn(function()
             while pSpamOn do
                 for p in pairs(selP) do
                     if p and p.Parent and p.Character and not wlP[p] and not isShielded(p) then
-                        for i = 1, 3 do
-                            task.spawn(attackPlayer, p)
-                        end
+                        for i = 1, 3 do task.spawn(attackPlayer, p) end
                     end
                 end
                 task.wait(0.05)
             end
         end)
-
         for i = 1, 3 do
-            pThreads["t" .. i] = task.spawn(function()
+            pThreads["t"..i] = task.spawn(function()
                 while pSpamOn do
                     for p in pairs(selP) do
                         if p and p.Parent and p.Character and not wlP[p] and not isShielded(p) then
@@ -1330,13 +1187,15 @@ pToggle.MouseButton1Click:Connect(function()
             ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 35, 170)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 25, 55)),
         })
-        pStatLbl.Text = "Stopped"
-        pStatLbl.TextColor3 = C.TextMute
+        pStatLbl.Text = "Stopped"; pStatLbl.TextColor3 = C.TextMute
         for _, th in pairs(pThreads) do pcall(task.cancel, th) end
         pThreads = {}
     end
 end)
 
+-- ============================================================
+-- VEHICLES TAB
+-- ============================================================
 local vTitle = Instance.new("TextLabel")
 vTitle.Text = "VEHICLES"
 vTitle.Size = UDim2.new(0.5, 0, 0, 26)
@@ -1350,7 +1209,7 @@ vTitle.ZIndex = 5
 vTitle.Parent = vContent
 
 local vCntLbl = Instance.new("TextLabel")
-vCntLbl.Size = UDim2.new(0.5, -4, 0, 26)
+vCntLbl.Size = UDim2.new(0.5, -48, 0, 26)
 vCntLbl.Position = UDim2.new(0.5, 0, 0, 8)
 vCntLbl.BackgroundTransparency = 1
 vCntLbl.TextColor3 = C.TextMute
@@ -1361,13 +1220,13 @@ vCntLbl.ZIndex = 5
 vCntLbl.Parent = vContent
 
 local vScroll = Instance.new("ScrollingFrame")
-vScroll.Size = UDim2.new(1, 0, 0, 260)
+vScroll.Size = UDim2.new(1, 0, 0, 250)
 vScroll.Position = UDim2.new(0, 0, 0, 38)
-vScroll.BackgroundColor3 = C.Panel
+vScroll.BackgroundColor3 = C.Bg
 vScroll.BackgroundTransparency = 0.3
-vScroll.ScrollBarThickness = 2
+vScroll.ScrollBarThickness = 3
 vScroll.ScrollBarImageColor3 = C.Accent
-vScroll.ScrollBarImageTransparency = 0.5
+vScroll.ScrollBarImageTransparency = 0.4
 vScroll.BorderSizePixel = 0
 vScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 vScroll.ZIndex = 4
@@ -1375,14 +1234,12 @@ vScroll.Parent = vContent
 cr(vScroll, 8)
 sk(vScroll, C.Border, 1, 0.5)
 
-local vLay = Instance.new("UIListLayout")
-vLay.Padding = UDim.new(0, 2)
-vLay.Parent = vScroll
+local vLay = Instance.new("UIListLayout"); vLay.Padding = UDim.new(0, 3); vLay.Parent = vScroll
 pad(vScroll, 4, 4, 4, 4)
 
 local vStatLbl = Instance.new("TextLabel")
 vStatLbl.Size = UDim2.new(1, 0, 0, 26)
-vStatLbl.Position = UDim2.new(0, 0, 0, 304)
+vStatLbl.Position = UDim2.new(0, 0, 0, 294)
 vStatLbl.BackgroundColor3 = C.Card
 vStatLbl.BackgroundTransparency = 0.3
 vStatLbl.TextColor3 = C.TextMute
@@ -1393,14 +1250,11 @@ vStatLbl.Parent = vContent
 cr(vStatLbl, 6)
 
 local function updVStat()
-    local n = 0
-    for _ in pairs(selV) do n = n + 1 end
+    local n = 0; for _ in pairs(selV) do n += 1 end
     if n == 0 then
-        vStatLbl.Text = "No targets selected"
-        vStatLbl.TextColor3 = C.TextMute
+        vStatLbl.Text = "No targets selected"; vStatLbl.TextColor3 = C.TextMute
     else
-        vStatLbl.Text = n .. " target" .. (n > 1 and "s" or "") .. " selected"
-        vStatLbl.TextColor3 = C.Success
+        vStatLbl.Text = n.." target"..(n>1 and "s" or "").." selected"; vStatLbl.TextColor3 = C.Success
     end
 end
 
@@ -1409,143 +1263,106 @@ local function makeVehRow(tgt)
 
     local row = Instance.new("Frame")
     row.Name = tgt.Name
-    row.Size = UDim2.new(1, -4, 0, 46)
+    row.Size = UDim2.new(1, -4, 0, 50)
     row.BackgroundColor3 = C.Card
-    row.BorderSizePixel = 0
-    row.ZIndex = 5
-    row.Parent = vScroll
-    cr(row, 6)
-    local rowStroke = sk(row, C.Border, 1, 0.7)
+    row.BorderSizePixel = 0; row.ZIndex = 5
+    row.Parent = vScroll; cr(row, 8)
+    local rowStroke = sk(row, C.Border, 1, 0.35)
+    addRowGradient(row)
 
     local cb = Instance.new("Frame")
-    cb.Size = UDim2.new(0, 16, 0, 16)
-    cb.Position = UDim2.new(0, 6, 0.5, -8)
+    cb.Size = UDim2.new(0, 18, 0, 18)
+    cb.Position = UDim2.new(0, 8, 0.5, -9)
     cb.BackgroundColor3 = C.Input
-    cb.BorderSizePixel = 0
-    cb.ZIndex = 6
-    cb.Parent = row
-    cr(cb, 4)
+    cb.BorderSizePixel = 0; cb.ZIndex = 6
+    cb.Parent = row; cr(cb, 5)
     local cbStroke = sk(cb, C.Border, 1, 0)
 
     local cm = Instance.new("TextLabel")
-    cm.Text = ""
-    cm.Size = UDim2.new(1, 0, 1, 0)
-    cm.BackgroundTransparency = 1
-    cm.TextColor3 = C.White
-    cm.Font = Enum.Font.GothamBold
-    cm.TextSize = 11
-    cm.ZIndex = 7
-    cm.Parent = cb
+    cm.Text = ""; cm.Size = UDim2.new(1,0,1,0); cm.BackgroundTransparency = 1
+    cm.TextColor3 = C.White; cm.Font = Enum.Font.GothamBold; cm.TextSize = 12
+    cm.ZIndex = 7; cm.Parent = cb
 
     local badge = Instance.new("Frame")
-    badge.Size = UDim2.new(0, 36, 0, 18)
-    badge.Position = UDim2.new(0, 28, 0.5, -9)
+    badge.Size = UDim2.new(0, 40, 0, 20)
+    badge.Position = UDim2.new(0, 32, 0.5, -10)
     badge.BackgroundColor3 = vCol[tgt.Type] or C.Card
-    badge.BackgroundTransparency = 0.6
-    badge.ZIndex = 6
-    badge.Parent = row
-    cr(badge, 4)
+    badge.BackgroundTransparency = 0.5
+    badge.ZIndex = 6; badge.Parent = row; cr(badge, 5)
 
     local bTxt = Instance.new("TextLabel")
     bTxt.Text = vShort[tgt.Type] or "??"
-    bTxt.Size = UDim2.new(1, 0, 1, 0)
-    bTxt.BackgroundTransparency = 1
-    bTxt.TextColor3 = C.Text
-    bTxt.TextSize = 8
-    bTxt.Font = Enum.Font.GothamBlack
-    bTxt.ZIndex = 7
-    bTxt.Parent = badge
+    bTxt.Size = UDim2.new(1,0,1,0); bTxt.BackgroundTransparency = 1
+    bTxt.TextColor3 = C.Text; bTxt.TextSize = 9; bTxt.Font = Enum.Font.GothamBlack
+    bTxt.ZIndex = 7; bTxt.Parent = badge
 
     local nl = Instance.new("TextLabel")
     nl.Text = tgt.Name
-    nl.Size = UDim2.new(0, 140, 0, 14)
-    nl.Position = UDim2.new(0, 70, 0, 5)
-    nl.BackgroundTransparency = 1
-    nl.TextColor3 = C.Text
-    nl.Font = Enum.Font.GothamBold
-    nl.TextSize = 11
+    nl.Size = UDim2.new(0, 150, 0, 16); nl.Position = UDim2.new(0, 78, 0, 7)
+    nl.BackgroundTransparency = 1; nl.TextColor3 = C.Text
+    nl.Font = Enum.Font.GothamBold; nl.TextSize = 12
     nl.TextXAlignment = Enum.TextXAlignment.Left
-    nl.TextTruncate = Enum.TextTruncate.AtEnd
-    nl.ZIndex = 7
-    nl.Parent = row
+    nl.TextTruncate = Enum.TextTruncate.AtEnd; nl.ZIndex = 7; nl.Parent = row
 
     local ol = Instance.new("TextLabel")
     ol.Name = "VehInfo"
-    ol.Size = UDim2.new(0, 220, 0, 11)
-    ol.Position = UDim2.new(0, 70, 0, 22)
-    ol.BackgroundTransparency = 1
-    ol.Font = Enum.Font.Gotham
-    ol.TextSize = 9
-    ol.TextXAlignment = Enum.TextXAlignment.Left
-    ol.TextTruncate = Enum.TextTruncate.AtEnd
-    ol.ZIndex = 7
-    ol.RichText = true
-    ol.Parent = row
+    ol.Size = UDim2.new(0, 220, 0, 12); ol.Position = UDim2.new(0, 78, 0, 27)
+    ol.BackgroundTransparency = 1; ol.Font = Enum.Font.Gotham; ol.TextSize = 10
+    ol.TextXAlignment = Enum.TextXAlignment.Left; ol.TextTruncate = Enum.TextTruncate.AtEnd
+    ol.ZIndex = 7; ol.RichText = true; ol.Parent = row
 
     local function updateVehInfo()
         local parts = {}
         if tgt.DisplayName and tgt.DisplayName ~= "" then
-            parts[#parts + 1] = '<font color="#9C84FC">' .. tgt.DisplayName .. '</font>'
+            parts[#parts+1] = '<font color="#9C84FC">'..tgt.DisplayName..'</font>'
             if tgt.Base and tgt.Base ~= "" then
                 local bCol = getBaseColor(tgt.Base)
-                local bHex = string.format("#%02X%02X%02X", math.floor(bCol.R * 255), math.floor(bCol.G * 255), math.floor(bCol.B * 255))
-                parts[#parts + 1] = '<font color="' .. bHex .. '">' .. tgt.Base .. '</font>'
+                local bHex = string.format("#%02X%02X%02X", math.floor(bCol.R*255), math.floor(bCol.G*255), math.floor(bCol.B*255))
+                parts[#parts+1] = '<font color="'..bHex..'">'..tgt.Base..'</font>'
             end
         else
-            parts[#parts + 1] = '<font color="#46465A">No owner</font>'
+            parts[#parts+1] = '<font color="#50506A">No owner</font>'
         end
         local dist = getDistanceToVeh(tgt.HRP)
-        if dist then
-            parts[#parts + 1] = '<font color="#46465A">' .. dist .. 'm</font>'
-        end
+        if dist then parts[#parts+1] = '<font color="#50506A">'..dist..'m</font>' end
         ol.Text = table.concat(parts, '  ')
     end
-
     updateVehInfo()
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.ZIndex = 8
-    btn.Parent = row
+    btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
+    btn.ZIndex = 8; btn.Parent = row
 
     local function vis()
         local s = selV[mdl] ~= nil
         if s then
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = C.Sel}):Play()
-            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.SelBrd, Transparency = 0.3}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.SelBrd, Transparency = 0.15}):Play()
             TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3 = C.Accent}):Play()
-            cbStroke.Color = C.Accent
-            cm.Text = "✓"
+            cbStroke.Color = C.Accent; cm.Text = "✓"
         else
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = C.Card}):Play()
-            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.Border, Transparency = 0.7}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.15), {Color = C.Border, Transparency = 0.35}):Play()
             TS:Create(cb, TweenInfo.new(0.15), {BackgroundColor3 = C.Input}):Play()
-            cbStroke.Color = C.Border
-            cm.Text = ""
+            cbStroke.Color = C.Border; cm.Text = ""
         end
     end
 
     btn.MouseButton1Click:Connect(function()
-        if selV[mdl] then
-            selV[mdl] = nil
-        else
-            selV[mdl] = {Model = mdl, HRP = tgt.HRP, Type = tgt.Type, Name = tgt.Name}
-        end
-        vis()
-        updVStat()
+        if selV[mdl] then selV[mdl] = nil
+        else selV[mdl] = {Model=mdl, HRP=tgt.HRP, Type=tgt.Type, Name=tgt.Name} end
+        vis(); updVStat()
     end)
 
     btn.MouseEnter:Connect(function()
         if not selV[mdl] then
             TS:Create(row, TweenInfo.new(0.1), {BackgroundColor3 = C.CardH}):Play()
+            TS:Create(rowStroke, TweenInfo.new(0.1), {Transparency = 0.15}):Play()
         end
     end)
-
     btn.MouseLeave:Connect(function() vis() end)
 
-    vehEl[mdl] = {row = row, vis = vis, tgt = tgt, updateInfo = updateVehInfo}
+    vehEl[mdl] = {row=row, vis=vis, tgt=tgt, updateInfo=updateVehInfo}
 end
 
 local function refreshVeh()
@@ -1554,16 +1371,14 @@ local function refreshVeh()
     scanVehicles()
     local keep = {}
     for _, t in ipairs(vehInst) do
-        if selV[t.Model] then
-            keep[t.Model] = {Model = t.Model, HRP = t.HRP, Type = t.Type, Name = t.Name}
-        end
+        if selV[t.Model] then keep[t.Model] = {Model=t.Model, HRP=t.HRP, Type=t.Type, Name=t.Name} end
     end
     selV = keep
     for _, t in ipairs(vehInst) do
         makeVehRow(t)
         if selV[t.Model] then vehEl[t.Model].vis() end
     end
-    vCntLbl.Text = #vehInst .. " found"
+    vCntLbl.Text = #vehInst.." found"
     task.defer(function()
         vScroll.CanvasSize = UDim2.new(0, 0, 0, vLay.AbsoluteContentSize.Y + 8)
     end)
@@ -1571,8 +1386,8 @@ local function refreshVeh()
 end
 
 local vBtnFrame = Instance.new("Frame")
-vBtnFrame.Size = UDim2.new(1, 0, 0, 28)
-vBtnFrame.Position = UDim2.new(0, 0, 0, 336)
+vBtnFrame.Size = UDim2.new(1, 0, 0, 30)
+vBtnFrame.Position = UDim2.new(0, 0, 0, 326)
 vBtnFrame.BackgroundTransparency = 1
 vBtnFrame.ZIndex = 4
 vBtnFrame.Parent = vContent
@@ -1582,22 +1397,20 @@ local vClearAll = makeSmallBtn("Clear All", 0.5, 0.5, vBtnFrame)
 
 vSelAll.MouseButton1Click:Connect(function()
     for m, e in pairs(vehEl) do
-        selV[m] = {Model = m, HRP = e.tgt.HRP, Type = e.tgt.Type, Name = e.tgt.Name}
+        selV[m] = {Model=m, HRP=e.tgt.HRP, Type=e.tgt.Type, Name=e.tgt.Name}
         e.vis()
     end
     updVStat()
 end)
 
 vClearAll.MouseButton1Click:Connect(function()
-    selV = {}
-    for _, e in pairs(vehEl) do e.vis() end
-    updVStat()
+    selV = {}; for _, e in pairs(vehEl) do e.vis() end; updVStat()
 end)
 
 local vToggle = Instance.new("TextButton")
 vToggle.Text = "⚡  START VEHICLES"
 vToggle.Size = UDim2.new(1, 0, 0, 44)
-vToggle.Position = UDim2.new(0, 0, 0, 370)
+vToggle.Position = UDim2.new(0, 0, 0, 362)
 vToggle.BackgroundColor3 = C.AccentD
 vToggle.TextColor3 = C.White
 vToggle.Font = Enum.Font.GothamBlack
@@ -1619,46 +1432,27 @@ vGrad.Parent = vToggle
 vToggle.MouseEnter:Connect(function()
     TS:Create(vToggle, TweenInfo.new(0.15), {BackgroundColor3 = C.Accent}):Play()
 end)
-
 vToggle.MouseLeave:Connect(function()
     TS:Create(vToggle, TweenInfo.new(0.2), {BackgroundColor3 = C.AccentD}):Play()
 end)
 
-local vInfoLbl = Instance.new("TextLabel")
-vInfoLbl.Text = "Auto-refresh 3s  ·  Owner + Base + Distance"
-vInfoLbl.Size = UDim2.new(1, 0, 0, 16)
-vInfoLbl.Position = UDim2.new(0, 0, 0, 418)
-vInfoLbl.BackgroundTransparency = 1
-vInfoLbl.TextColor3 = C.TextMute
-vInfoLbl.Font = Enum.Font.Gotham
-vInfoLbl.TextSize = 9
-vInfoLbl.ZIndex = 4
-vInfoLbl.Parent = vContent
-
 vToggle.MouseButton1Click:Connect(function()
     vSpamOn = not vSpamOn
     if vSpamOn then
-        local n = 0
-        for _ in pairs(selV) do n = n + 1 end
+        local n = 0; for _ in pairs(selV) do n += 1 end
         if n == 0 then
-            vStatLbl.Text = "Select targets first!"
-            vStatLbl.TextColor3 = C.Danger
-            vSpamOn = false
-            return
+            vStatLbl.Text = "Select targets first!"; vStatLbl.TextColor3 = C.Danger
+            vSpamOn = false; return
         end
         if not rpgReady then
-            vStatLbl.Text = "RPG system not found!"
-            vStatLbl.TextColor3 = C.Danger
-            vSpamOn = false
-            return
+            vStatLbl.Text = "RPG system not found!"; vStatLbl.TextColor3 = C.Danger
+            vSpamOn = false; return
         end
         if not tool then
             tool = findRPG()
             if not tool then
-                vStatLbl.Text = "Need RPG!"
-                vStatLbl.TextColor3 = C.Danger
-                vSpamOn = false
-                return
+                vStatLbl.Text = "Need RPG!"; vStatLbl.TextColor3 = C.Danger
+                vSpamOn = false; return
             end
         end
         vToggle.Text = "⏹  STOP VEHICLES"
@@ -1666,23 +1460,21 @@ vToggle.MouseButton1Click:Connect(function()
             ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 110, 75)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 75, 55)),
         })
-        vStatLbl.Text = "Active — " .. n .. " target" .. (n > 1 and "s" or "")
+        vStatLbl.Text = "Active — "..n.." target"..(n>1 and "s" or "")
         vStatLbl.TextColor3 = C.Success
 
         vThreads["main"] = task.spawn(function()
             while vSpamOn do
                 for _, td in pairs(selV) do
                     if vSpamOn and td.Model and td.Model.Parent then
-                        attackVehicle(td)
-                        task.wait(0.05)
+                        attackVehicle(td); task.wait(0.05)
                     end
                 end
                 task.wait(0.1)
             end
         end)
-
         for i = 1, 3 do
-            vThreads["t" .. i] = task.spawn(function()
+            vThreads["t"..i] = task.spawn(function()
                 while vSpamOn do
                     for _, td in pairs(selV) do
                         if vSpamOn and td.Model and td.Model.Parent then
@@ -1699,13 +1491,15 @@ vToggle.MouseButton1Click:Connect(function()
             ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 35, 170)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 25, 55)),
         })
-        vStatLbl.Text = "Stopped"
-        vStatLbl.TextColor3 = C.TextMute
+        vStatLbl.Text = "Stopped"; vStatLbl.TextColor3 = C.TextMute
         for _, th in pairs(vThreads) do pcall(task.cancel, th) end
         vThreads = {}
     end
 end)
 
+-- ============================================================
+-- FLOATING TOGGLE
+-- ============================================================
 local floatBtn = Instance.new("TextButton")
 floatBtn.Name = "Toggle"
 floatBtn.Text = "RPG"
@@ -1726,32 +1520,26 @@ local fStroke = sk(floatBtn, C.Accent, 2, 0.3)
 floatBtn.MouseEnter:Connect(function()
     TS:Create(fStroke, TweenInfo.new(0.15), {Transparency = 0, Color = C.AccentL}):Play()
 end)
-
 floatBtn.MouseLeave:Connect(function()
     TS:Create(fStroke, TweenInfo.new(0.2), {Transparency = 0.3, Color = C.Accent}):Play()
 end)
 
 local fd, fdi, fds, fsp
-
 floatBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        fd = true
-        fds = i.Position
-        fsp = floatBtn.Position
+        fd = true; fds = i.Position; fsp = floatBtn.Position
         i.Changed:Connect(function()
             if i.UserInputState == Enum.UserInputState.End then fd = false end
         end)
     end
 end)
-
 floatBtn.InputChanged:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseMovement then fdi = i end
 end)
-
 UIS.InputChanged:Connect(function(i)
     if i == fdi and fd then
         local d = i.Position - fds
-        floatBtn.Position = UDim2.new(fsp.X.Scale, fsp.X.Offset + d.X, fsp.Y.Scale, fsp.Y.Offset + d.Y)
+        floatBtn.Position = UDim2.new(fsp.X.Scale, fsp.X.Offset+d.X, fsp.Y.Scale, fsp.Y.Offset+d.Y)
     end
 end)
 
@@ -1759,6 +1547,9 @@ floatBtn.MouseButton1Click:Connect(function()
     main.Visible = not main.Visible
 end)
 
+-- ============================================================
+-- RESPAWN
+-- ============================================================
 plr.CharacterAdded:Connect(function(nc)
     char = nc
     hrp = nc:WaitForChild("HumanoidRootPart")
@@ -1777,22 +1568,18 @@ plr.CharacterAdded:Connect(function(nc)
             rpgReady = true
         end
     end)
-    if rpgReady and rpgDot then
-        rpgDot.BackgroundColor3 = C.Success
-    end
+    if rpgReady and rpgDot then rpgDot.BackgroundColor3 = C.Success end
 end)
 
+-- ============================================================
+-- INIT
+-- ============================================================
 for _, p in pairs(Players:GetPlayers()) do createPlrEl(p) end
-updOnline()
-updPStat()
-updateMyBase()
+updOnline(); updPStat(); updateMyBase()
 
 Players.PlayerAdded:Connect(function(p)
-    task.wait(0.5)
-    createPlrEl(p)
-    updOnline()
+    task.wait(0.5); createPlrEl(p); updOnline()
 end)
-
 Players.PlayerRemoving:Connect(function(p) removePlrEl(p) end)
 
 task.spawn(function()
@@ -1816,12 +1603,8 @@ task.spawn(function()
 end)
 
 refreshVeh()
-
 task.spawn(function()
-    while true do
-        task.wait(3)
-        refreshVeh()
-    end
+    while true do task.wait(3); refreshVeh() end
 end)
 
 task.spawn(function()
