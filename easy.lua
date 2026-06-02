@@ -52,8 +52,7 @@ pcall(function() local gs = workspace:FindFirstChild("Game Systems"); if gs then
     for _,n in ipairs({"Helicopter","Plane","Gunship","Boat","Tank","Hovercraft","Vehicle","Submarine","Drone","RC"}) do
         vFolders[n] = gs:FindFirstChild(n.." Workspace") end end end)
 
-local vCol = {}
-local vShort = {}
+local vCol,vShort = {},{}
 do
     vCol = {Helicopter=Color3.fromRGB(50,100,170),Plane=Color3.fromRGB(70,75,160),Gunship=Color3.fromRGB(160,50,50),
         Boat=Color3.fromRGB(40,120,110),Tank=Color3.fromRGB(150,110,40),Hovercraft=Color3.fromRGB(110,70,170),
@@ -66,13 +65,13 @@ local selP,wlP,plrEl = {},{},{}
 local selV,vehInst,vehEl = {},{},{}
 local pSpamOn,pThreads = false,{}
 local vSpamOn,vThreads = false,{}
-
 local rpgClickOn = false
 local ignoreShield = false
 local autoBreakShield = false
 local clickHolding = false
 local clickSpamThread = nil
 local clickPower = 3
+local antiExplosion = false
 
 local farmActive = false
 local farmThread = nil
@@ -106,13 +105,94 @@ local drawLastPos = nil
 local drawStrokePoints = {}
 local drawUndoStack = {}
 local dWaitBind = false
-
 local allSliders = {}
+local pulseThreads = {}
 
 local function cr(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r or 6);c.Parent=p;return c end
 local function sk(p,col,th,tr) local s=Instance.new("UIStroke");s.Color=col or C.Border;s.Thickness=th or 1;s.Transparency=tr or 0;s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border;s.Parent=p;return s end
 local function pad(p,t,b,l,r) local pd=Instance.new("UIPadding");pd.Parent=p;pd.PaddingTop=UDim.new(0,t or 0);pd.PaddingBottom=UDim.new(0,b or 0);pd.PaddingLeft=UDim.new(0,l or 0);pd.PaddingRight=UDim.new(0,r or 0);return pd end
 local function addRowGradient(p) local g=Instance.new("UIGradient");g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(0.15,Color3.fromRGB(240,240,245)),ColorSequenceKeypoint.new(1,Color3.fromRGB(190,190,205))});g.Rotation=90;g.Parent=p;return g end
+
+local function startPulse(btn,id)
+    if pulseThreads[id] then return end
+    pulseThreads[id]=task.spawn(function()
+        while pulseThreads[id] do
+            TS:Create(btn,TweenInfo.new(0.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=0.3}):Play()
+            task.wait(0.6)
+            TS:Create(btn,TweenInfo.new(0.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=0}):Play()
+            task.wait(0.6)
+        end
+    end)
+end
+
+local function stopPulse(btn,id)
+    if pulseThreads[id] then pcall(task.cancel,pulseThreads[id]);pulseThreads[id]=nil end
+    btn.BackgroundTransparency=0
+end
+
+local gui=Instance.new("ScreenGui");gui.Name="NazarkusRPG";gui.Parent=game.CoreGui;gui.ResetOnSpawn=false;gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+
+local notifContainer=Instance.new("Frame");notifContainer.Size=UDim2.new(0,260,1,0);notifContainer.Position=UDim2.new(1,-270,0,0);notifContainer.BackgroundTransparency=1;notifContainer.ZIndex=20;notifContainer.Parent=gui
+local notifLayout=Instance.new("UIListLayout");notifLayout.VerticalAlignment=Enum.VerticalAlignment.Bottom;notifLayout.Padding=UDim.new(0,6);notifLayout.SortOrder=Enum.SortOrder.LayoutOrder;notifLayout.Parent=notifContainer
+pad(notifContainer,0,10,0,0)
+
+local notifOrder=0
+local function notify(text,color,duration)
+    notifOrder+=1;duration=duration or 3
+    local nf=Instance.new("Frame");nf.Size=UDim2.new(1,0,0,0);nf.BackgroundColor3=C.Card;nf.BorderSizePixel=0;nf.ZIndex=21;nf.ClipsDescendants=true;nf.LayoutOrder=notifOrder;nf.Parent=notifContainer;cr(nf,8);sk(nf,color or C.Accent,1,0.3)
+    local accent=Instance.new("Frame");accent.Size=UDim2.new(0,3,1,0);accent.BackgroundColor3=color or C.Accent;accent.BorderSizePixel=0;accent.ZIndex=22;accent.Parent=nf;cr(accent,2)
+    local lbl=Instance.new("TextLabel");lbl.Text=text;lbl.Size=UDim2.new(1,-14,1,0);lbl.Position=UDim2.new(0,10,0,0);lbl.BackgroundTransparency=1;lbl.TextColor3=C.Text;lbl.Font=Enum.Font.GothamMedium;lbl.TextSize=11;lbl.TextWrapped=true;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.ZIndex=22;lbl.Parent=nf
+    TS:Create(nf,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(1,0,0,36)}):Play()
+    task.delay(duration,function()
+        TS:Create(nf,TweenInfo.new(0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(1,0,0,0),BackgroundTransparency=1}):Play()
+        task.wait(0.35);if nf and nf.Parent then nf:Destroy() end
+    end)
+end
+
+local hoverPreview=Instance.new("Frame");hoverPreview.Size=UDim2.new(0,80,0,80);hoverPreview.BackgroundColor3=C.Card;hoverPreview.BorderSizePixel=0;hoverPreview.ZIndex=30;hoverPreview.Visible=false;hoverPreview.Parent=gui;cr(hoverPreview,10);sk(hoverPreview,C.Accent,2,0.2)
+local hoverImg=Instance.new("ImageLabel");hoverImg.Size=UDim2.new(1,-6,1,-6);hoverImg.Position=UDim2.new(0,3,0,3);hoverImg.BackgroundTransparency=1;hoverImg.ZIndex=31;hoverImg.Parent=hoverPreview;cr(hoverImg,8)
+local hoverName=Instance.new("TextLabel");hoverName.Size=UDim2.new(0,80,0,14);hoverName.Position=UDim2.new(0,0,1,2);hoverName.BackgroundTransparency=1;hoverName.TextColor3=C.White;hoverName.Font=Enum.Font.GothamBold;hoverName.TextSize=9;hoverName.ZIndex=31;hoverName.Parent=hoverPreview
+
+local function showHoverPreview(player,rowFrame)
+    if not player or not rowFrame then return end
+    task.spawn(function()
+        local ok,img=pcall(Players.GetUserThumbnailAsync,Players,player.UserId,Enum.ThumbnailType.AvatarThumbnail,Enum.ThumbnailSize.Size150x150)
+        if ok and hoverImg then hoverImg.Image=img end
+    end)
+    hoverName.Text=player.DisplayName
+    local pos=rowFrame.AbsolutePosition
+    hoverPreview.Position=UDim2.new(0,pos.X-85,0,pos.Y-10)
+    hoverPreview.Visible=true
+end
+local function hideHoverPreview() hoverPreview.Visible=false end
+
+local function toggleAntiExplosion(enable)
+    if enable then
+        local ok=pcall(function()
+            local rs=game:GetService("ReplicatedStorage")
+            local evts=rs.RocketSystem.Events
+            local function safeDestroy(parent,name) local c=parent:FindFirstChild(name);if c then c:Destroy() end end
+            safeDestroy(evts,"ExplosionShake");safeDestroy(evts,"FireFlare");safeDestroy(evts,"FireRocketFX");safeDestroy(evts,"JamRocket")
+            local rpgR=rs.RocketSystem.Rockets:FindFirstChild("RPG Rocket")
+            if rpgR then local mp=rpgR:FindFirstChild("MainPart");if mp then
+                for _,n in ipairs({"BurnSFX","SmokeTrail","TrailEnd","TrailStart","VFXAttachment","WeldConstraint"}) do safeDestroy(mp,n) end
+            end end
+            local javR=rs.RocketSystem.Rockets:FindFirstChild("Javelin G-Rocket")
+            if javR then local mp=javR:FindFirstChild("MainPart");if mp then
+                for _,n in ipairs({"BurnSFX","SmokeTrail","TrailEnd","TrailStart","VFXAttachment","Motor6D"}) do safeDestroy(mp,n) end
+            end end
+            safeDestroy(rs.RocketSystem,"FireBox")
+            local assets=rs:FindFirstChild("Assets");if assets then safeDestroy(assets,"Explosion")
+                local oe=assets:FindFirstChild("ObstacleEffects");if oe then safeDestroy(oe,"VFX") end end
+            local remotes=rs:FindFirstChild("Remotes");if remotes then safeDestroy(remotes,"ExplosionEffectLocal");safeDestroy(remotes,"ExplosionEffect") end
+            safeDestroy(rs.RocketSystem,"FlareModel");safeDestroy(rs,"SendAFK")
+            local sp=game:GetService("StarterPlayer");local sps=sp:FindFirstChild("StarterPlayerScripts");if sps then safeDestroy(sps,"BulletHitFX") end
+            local res=rs:FindFirstChild("Resources");if res then safeDestroy(res,"CameraShaker") end
+        end)
+        return ok
+    end
+    return false
+end
 
 local function createSlider(parent,label,min,max,default,yPos,callback)
     local frame=Instance.new("Frame");frame.Size=UDim2.new(1,0,0,18);frame.Position=UDim2.new(0,0,0,yPos);frame.BackgroundColor3=Color3.fromRGB(12,12,17);frame.BorderSizePixel=0;frame.ZIndex=4;frame.Parent=parent;cr(frame,4)
@@ -202,23 +282,14 @@ local function destroyAllShields()
         local bs=pu:FindFirstChild("Base Shield");if not bs then continue end
         local sf=bs:FindFirstChild("Shield");if not sf then continue end
         local isMyBase=false
-        for _,v in ipairs(t:GetDescendants()) do
-            if v:IsA("ObjectValue") and v.Name=="Owner" and v.Value==plr then isMyBase=true;break end
-        end
+        for _,v in ipairs(t:GetDescendants()) do if v:IsA("ObjectValue") and v.Name=="Owner" and v.Value==plr then isMyBase=true;break end end
         if isMyBase then continue end
         count+=1
         task.spawn(function()
-            for _=1,20 do
-                if not sf or not sf.Parent then break end
-                local parts={}
-                for _,part in ipairs(sf:GetChildren()) do if part:IsA("BasePart") and part.Parent then table.insert(parts,part) end end
+            for _=1,20 do if not sf or not sf.Parent then break end
+                local parts={};for _,part in ipairs(sf:GetChildren()) do if part:IsA("BasePart") and part.Parent then table.insert(parts,part) end end
                 if #parts==0 then break end
-                for _,part in ipairs(parts) do
-                    if part and part.Parent then
-                        pcall(function() hitEv:FireServer({Normal=Vector3.new(0,1,0),HitPart=part,Position=part.Position,Label=plr.Name.."DS"..rCnt,Vehicle=weapon,Player=plr,Weapon=weapon}) end)
-                        rCnt+=1
-                    end
-                end
+                for _,part in ipairs(parts) do if part and part.Parent then pcall(function() hitEv:FireServer({Normal=Vector3.new(0,1,0),HitPart=part,Position=part.Position,Label=plr.Name.."DS"..rCnt,Vehicle=weapon,Player=plr,Weapon=weapon}) end);rCnt+=1 end end
                 task.wait(0.1)
             end
         end)
@@ -254,9 +325,7 @@ local function fireRocket(targetPos,hitPart)
     rCnt+=1;return true
 end
 
-local function fireRocketMulti(targetPos,hitPart,count)
-    for i=1,count do task.spawn(function() fireRocket(targetPos,hitPart) end) end
-end
+local function fireRocketMulti(targetPos,hitPart,count) for i=1,count do task.spawn(function() fireRocket(targetPos,hitPart) end) end end
 
 local function attackPlayer(player)
     if not player or not player.Character or player==plr then return end;if wlP[player] then return end
@@ -270,10 +339,7 @@ local function attackVehicle(td)
     local health=nil
     pcall(function()
         local hv=td.Model:FindFirstChild("Health")
-        if hv then
-            if hv:IsA("ValueBase") then health=hv.Value
-            elseif typeof(hv)=="number" then health=hv end
-        end
+        if hv then if hv:IsA("ValueBase") then health=hv.Value elseif typeof(hv)=="number" then health=hv end end
         if not health then health=td.Model:GetAttribute("Health") end
         if not health then local hum=td.Model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health end end
     end)
@@ -332,18 +398,25 @@ local function updateVehESP(esp)
     local dist=hrp and hrp.Parent and(hrp.Position-esp.part.Position).Magnitude or math.huge
     if dist>ESP_CONFIG.MaxDistance then esp.bb.Enabled=false;return true end;esp.bb.Enabled=true;esp.bb.Adornee=esp.part
     esp.distLbl.Text=string.format("[%dm]",math.floor(dist))
-    local health,maxHealth;pcall(function() health=esp.model:GetAttribute("Health");maxHealth=esp.model:GetAttribute("MaxHealth");if not health or not maxHealth then local hum=esp.model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health;maxHealth=hum.MaxHealth end end end)
-    if health and maxHealth and maxHealth>0 then local pct=math.clamp(health/maxHealth,0,1);esp.hpBg.Visible=true;esp.hpFill.Size=UDim2.new(math.max(pct,0.01),0,1,0);esp.hpFill.BackgroundColor3=getHealthColor(pct);esp.hpText.Text=string.format("%d/%d",math.floor(health),math.floor(maxHealth));esp.hpText.TextColor3=getHealthColor(pct) else esp.hpBg.Visible=false;esp.hpText.Text="" end
-    do
-        local displayName,base
+    do local health,maxHealth
+        pcall(function()
+            local hv=esp.model:FindFirstChild("Health");local mhv=esp.model:FindFirstChild("MaxHealth")
+            if hv and hv:IsA("ValueBase") then health=hv.Value end;if mhv and mhv:IsA("ValueBase") then maxHealth=mhv.Value end
+            if not health then health=esp.model:GetAttribute("Health") end;if not maxHealth then maxHealth=esp.model:GetAttribute("MaxHealth") end
+            if not health or not maxHealth then local hum=esp.model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health;maxHealth=hum.MaxHealth end end
+        end)
+        if health and maxHealth and maxHealth>0 then local pct=math.clamp(health/maxHealth,0,1);esp.hpBg.Visible=true;esp.hpFill.Size=UDim2.new(math.max(pct,0.01),0,1,0);esp.hpFill.BackgroundColor3=getHealthColor(pct);esp.hpText.Text=string.format("%d/%d",math.floor(health),math.floor(maxHealth));esp.hpText.TextColor3=getHealthColor(pct) else esp.hpBg.Visible=false;esp.hpText.Text="" end
+    end
+    do local displayName,base
         pcall(function() local o=esp.model:GetAttribute("Owner") or esp.model:GetAttribute("Pilot") or esp.model:GetAttribute("KillOwner");if o and type(o)=="string" and o~="" then local p=Players:FindFirstChild(o);if p then displayName=p.DisplayName;if p.Team then base=p.Team.Name end else displayName=o end end end)
         if displayName then local str=displayName;if base then str=str.." ["..base.."]" end;esp.ownerLbl.Text=str else esp.ownerLbl.Text="" end
     end
     return true
 end
 
-local gui=Instance.new("ScreenGui");gui.Name="NazarkusRPG";gui.Parent=game.CoreGui;gui.ResetOnSpawn=false;gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-local main=Instance.new("Frame");main.Size=UDim2.new(0,520,0,480);main.Position=UDim2.new(0.5,-260,0.5,-240);main.BackgroundColor3=C.Bg;main.BorderSizePixel=0;main.ClipsDescendants=true;main.Active=true;main.Parent=gui;cr(main,10);sk(main,C.Border,1,0.3)
+local main=Instance.new("Frame");main.Size=UDim2.new(0,0,0,0);main.Position=UDim2.new(0.5,0,0.5,0);main.AnchorPoint=Vector2.new(0.5,0.5);main.BackgroundColor3=C.Bg;main.BackgroundTransparency=1;main.BorderSizePixel=0;main.ClipsDescendants=true;main.Active=true;main.Parent=gui;cr(main,10);sk(main,C.Border,1,0.3)
+
+TS:Create(main,TweenInfo.new(0.5,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,520,0,480),BackgroundTransparency=0}):Play()
 
 local sidebar, navBtns, currentTab, contentArea
 local pContent, vContent, fContent, dContent
@@ -373,22 +446,21 @@ do
     local navFarm=createNavBtn("FARM","farm",136)
     local navDraw=createNavBtn("DRAW","draw",168)
 
-        local avatarFrame=Instance.new("Frame");avatarFrame.Size=UDim2.new(0,70,0,70);avatarFrame.Position=UDim2.new(0.5,-35,1,-160);avatarFrame.BackgroundColor3=C.Input;avatarFrame.BorderSizePixel=0;avatarFrame.ZIndex=5;avatarFrame.Parent=sidebar;cr(avatarFrame,35)
-    local avatarStroke=sk(avatarFrame,C.Accent,2,0.3)
+    local avatarFrame=Instance.new("Frame");avatarFrame.Size=UDim2.new(0,70,0,70);avatarFrame.Position=UDim2.new(0.5,-35,1,-160);avatarFrame.BackgroundColor3=C.Input;avatarFrame.BorderSizePixel=0;avatarFrame.ZIndex=5;avatarFrame.Parent=sidebar;cr(avatarFrame,35)
+    sk(avatarFrame,C.Accent,2,0.3)
     local avatarImg=Instance.new("ImageLabel");avatarImg.Size=UDim2.new(1,-4,1,-4);avatarImg.Position=UDim2.new(0,2,0,2);avatarImg.BackgroundTransparency=1;avatarImg.ZIndex=6;avatarImg.Parent=avatarFrame;cr(avatarImg,33)
-    task.spawn(function()
-        local ok,img=pcall(Players.GetUserThumbnailAsync,Players,plr.UserId,Enum.ThumbnailType.AvatarThumbnail,Enum.ThumbnailSize.Size150x150)
-        if ok and avatarImg and avatarImg.Parent then avatarImg.Image=img end
-    end)
-    local avatarGlow=Instance.new("UIGradient");avatarGlow.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(200,180,255))});avatarGlow.Rotation=180;avatarGlow.Parent=avatarFrame
-
+    task.spawn(function() local ok,img=pcall(Players.GetUserThumbnailAsync,Players,plr.UserId,Enum.ThumbnailType.AvatarThumbnail,Enum.ThumbnailSize.Size150x150);if ok and avatarImg and avatarImg.Parent then avatarImg.Image=img end end)
     local myNameLbl=Instance.new("TextLabel");myNameLbl.Size=UDim2.new(1,-10,0,14);myNameLbl.Position=UDim2.new(0,5,1,-84);myNameLbl.BackgroundTransparency=1;myNameLbl.Text=plr.DisplayName;myNameLbl.TextColor3=C.White;myNameLbl.Font=Enum.Font.GothamBold;myNameLbl.TextSize=10;myNameLbl.TextTruncate=Enum.TextTruncate.AtEnd;myNameLbl.ZIndex=5;myNameLbl.Parent=sidebar
 
     sideInfo=Instance.new("TextLabel");sideInfo.Size=UDim2.new(1,-20,0,30);sideInfo.Position=UDim2.new(0,10,1,-70);sideInfo.BackgroundTransparency=1;sideInfo.TextColor3=C.TextMute;sideInfo.Font=Enum.Font.Gotham;sideInfo.TextSize=9;sideInfo.TextWrapped=true;sideInfo.TextYAlignment=Enum.TextYAlignment.Bottom;sideInfo.ZIndex=5;sideInfo.Parent=sidebar
     myBaseLbl=Instance.new("TextLabel");myBaseLbl.Size=UDim2.new(1,-20,0,14);myBaseLbl.Position=UDim2.new(0,10,1,-36);myBaseLbl.BackgroundTransparency=1;myBaseLbl.Font=Enum.Font.GothamBold;myBaseLbl.TextSize=9;myBaseLbl.TextWrapped=true;myBaseLbl.ZIndex=5;myBaseLbl.Parent=sidebar
+
     contentArea=Instance.new("Frame");contentArea.Size=UDim2.new(1,-130,1,0);contentArea.Position=UDim2.new(0,130,0,0);contentArea.BackgroundTransparency=1;contentArea.ZIndex=2;contentArea.Parent=main
     local closeBtn=Instance.new("TextButton");closeBtn.Text="x";closeBtn.Size=UDim2.new(0,24,0,24);closeBtn.Position=UDim2.new(1,-34,0,10);closeBtn.BackgroundColor3=C.Danger;closeBtn.BackgroundTransparency=0.2;closeBtn.TextColor3=C.White;closeBtn.Font=Enum.Font.GothamBold;closeBtn.TextSize=14;closeBtn.AutoButtonColor=false;closeBtn.BorderSizePixel=0;closeBtn.ZIndex=8;closeBtn.Parent=contentArea;cr(closeBtn,12)
-    closeBtn.MouseButton1Click:Connect(function() main.Visible=false end)
+    closeBtn.MouseButton1Click:Connect(function()
+        TS:Create(main,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0),BackgroundTransparency=1}):Play()
+        task.wait(0.35);main.Visible=false;main.Size=UDim2.new(0,520,0,480);main.BackgroundTransparency=0
+    end)
 
     pContent=Instance.new("Frame");pContent.Size=UDim2.new(1,-24,1,-16);pContent.Position=UDim2.new(0,12,0,8);pContent.BackgroundTransparency=1;pContent.ZIndex=3;pContent.Visible=true;pContent.Parent=contentArea
     vContent=Instance.new("Frame");vContent.Size=UDim2.new(1,-24,1,-16);vContent.Position=UDim2.new(0,12,0,8);vContent.BackgroundTransparency=1;vContent.ZIndex=3;vContent.Visible=false;vContent.Parent=contentArea
@@ -410,7 +482,7 @@ do
     local function startDrag(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then _dr=true;_ds=i.Position;_dp=main.Position;i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then _dr=false end end) end end
     local function trackDrag(i) if i.UserInputType==Enum.UserInputType.MouseMovement then _di=i end end
     titleDrag.InputBegan:Connect(startDrag);titleDrag.InputChanged:Connect(trackDrag);sidebar.InputBegan:Connect(startDrag);sidebar.InputChanged:Connect(trackDrag)
-    UIS.InputChanged:Connect(function(i) if i==_di and _dr then local d=i.Position-_ds;TS:Create(main,TweenInfo.new(0.06),{Position=UDim2.new(_dp.X.Scale,_dp.X.Offset+d.X,_dp.Y.Scale,_dp.Y.Offset+d.Y)}):Play() end end)
+    UIS.InputChanged:Connect(function(i) if i==_di and _dr then local d=i.Position-_ds;main.Position=UDim2.new(0,_dp.X.Offset+d.X+main.AbsoluteSize.X/2,0,_dp.Y.Offset+d.Y+main.AbsoluteSize.Y/2) end end)
 end
 
 local function updateMyBase() local base=getPlayerBase(plr);if base then myBaseLbl.Text=base;myBaseLbl.TextColor3=getBaseColor(base) else myBaseLbl.Text="No base";myBaseLbl.TextColor3=C.TextMute end end
@@ -428,25 +500,31 @@ do
     searchBox:GetPropertyChangedSignal("Text"):Connect(function() local q=searchBox.Text:lower();for player,el in pairs(plrEl) do el.Visible=q=="" or player.Name:lower():find(q) or player.DisplayName:lower():find(q) end end)
 
     local optFrame=Instance.new("Frame");optFrame.Size=UDim2.new(1,0,0,22);optFrame.Position=UDim2.new(0,0,0,56);optFrame.BackgroundTransparency=1;optFrame.ZIndex=4;optFrame.Parent=pContent
-    local function makeToggleBtn(text,xPos,xSize,parent) local btn=Instance.new("TextButton");btn.Text=text;btn.Size=UDim2.new(xSize,-2,1,0);btn.Position=UDim2.new(xPos,1,0,0);btn.BackgroundColor3=C.Card;btn.TextColor3=C.TextMute;btn.Font=Enum.Font.GothamBold;btn.TextSize=8;btn.AutoButtonColor=false;btn.BorderSizePixel=0;btn.ZIndex=5;btn.Parent=parent;cr(btn,4);return btn end
+    local function makeToggleBtn(text,xPos,xSize,parent) local btn=Instance.new("TextButton");btn.Text=text;btn.Size=UDim2.new(xSize,-2,1,0);btn.Position=UDim2.new(xPos,1,0,0);btn.BackgroundColor3=C.Card;btn.TextColor3=C.TextMute;btn.Font=Enum.Font.GothamBold;btn.TextSize=7;btn.AutoButtonColor=false;btn.BorderSizePixel=0;btn.ZIndex=5;btn.Parent=parent;cr(btn,4);return btn end
 
-    local rpgClickBtn=makeToggleBtn("RPG CLICK",0,0.25,optFrame)
-    local ignoreShieldBtn=makeToggleBtn("IGN SHIELD",0.25,0.25,optFrame)
-    local autoBreakBtn=makeToggleBtn("AUTO BREAK",0.5,0.25,optFrame)
-    local destroyShieldsBtn=makeToggleBtn("DESTROY SHIELDS",0.75,0.25,optFrame)
-    destroyShieldsBtn.BackgroundColor3=Color3.fromRGB(45,30,15)
-    destroyShieldsBtn.TextColor3=C.Shield
+    local rpgClickBtn=makeToggleBtn("RPG CLICK",0,0.2,optFrame)
+    local ignoreShieldBtn=makeToggleBtn("IGN SHIELD",0.2,0.2,optFrame)
+    local autoBreakBtn=makeToggleBtn("AUTO BREAK",0.4,0.2,optFrame)
+    local destroyShieldsBtn=makeToggleBtn("DESTROY ALL",0.6,0.2,optFrame)
+    local antiExpBtn=makeToggleBtn("ANTI BOOM",0.8,0.2,optFrame)
+    destroyShieldsBtn.BackgroundColor3=Color3.fromRGB(45,30,15);destroyShieldsBtn.TextColor3=C.Shield
+    antiExpBtn.BackgroundColor3=Color3.fromRGB(15,35,20);antiExpBtn.TextColor3=C.Success
 
-    rpgClickBtn.MouseButton1Click:Connect(function() rpgClickOn=not rpgClickOn;rpgClickBtn.BackgroundColor3=rpgClickOn and C.AccentD or C.Card;rpgClickBtn.TextColor3=rpgClickOn and C.White or C.TextMute end)
+    rpgClickBtn.MouseButton1Click:Connect(function() rpgClickOn=not rpgClickOn;rpgClickBtn.BackgroundColor3=rpgClickOn and C.AccentD or C.Card;rpgClickBtn.TextColor3=rpgClickOn and C.White or C.TextMute;notify(rpgClickOn and "RPG Click ON" or "RPG Click OFF",rpgClickOn and C.Success or C.TextMute,2) end)
     ignoreShieldBtn.MouseButton1Click:Connect(function() ignoreShield=not ignoreShield;ignoreShieldBtn.BackgroundColor3=ignoreShield and C.AccentD or C.Card;ignoreShieldBtn.TextColor3=ignoreShield and C.White or C.TextMute end)
     autoBreakBtn.MouseButton1Click:Connect(function() autoBreakShield=not autoBreakShield;autoBreakBtn.BackgroundColor3=autoBreakShield and C.AccentD or C.Card;autoBreakBtn.TextColor3=autoBreakShield and C.White or C.TextMute end)
     destroyShieldsBtn.MouseButton1Click:Connect(function()
-        if not rpgReady then pStatLbl.Text="No RPG!";pStatLbl.TextColor3=C.Danger;return end
+        if not rpgReady then notify("No RPG system!",C.Danger,2);return end
         destroyShieldsBtn.TextColor3=C.White;destroyShieldsBtn.BackgroundColor3=C.Shield
         local cnt=destroyAllShields()
-        if cnt>0 then pStatLbl.Text="Destroying "..cnt.." shields...";pStatLbl.TextColor3=C.Shield
-        else pStatLbl.Text="No shields found";pStatLbl.TextColor3=C.TextMute end
+        if cnt>0 then notify("Destroying "..cnt.." shields...",C.Shield,3) else notify("No shields found",C.TextMute,2) end
         task.delay(1,function() destroyShieldsBtn.TextColor3=C.Shield;destroyShieldsBtn.BackgroundColor3=Color3.fromRGB(45,30,15) end)
+    end)
+    antiExpBtn.MouseButton1Click:Connect(function()
+        if antiExplosion then notify("Already active",C.TextMute,2);return end
+        local ok=toggleAntiExplosion(true)
+        if ok then antiExplosion=true;antiExpBtn.BackgroundColor3=C.Success;antiExpBtn.TextColor3=C.White;notify("Anti-Explosion enabled!",C.Success,3)
+        else notify("Failed to enable",C.Danger,2) end
     end)
 
     createSlider(pContent,"Power",1,10,clickPower,80,function(v) clickPower=v end)
@@ -477,9 +555,11 @@ do
         local nl=Instance.new("TextLabel");nl.Text=player.DisplayName;nl.Size=UDim2.new(0,80,0,13);nl.Position=UDim2.new(0,58,0,4);nl.BackgroundTransparency=1;nl.TextColor3=C.Text;nl.Font=Enum.Font.GothamBold;nl.TextSize=10;nl.TextXAlignment=Enum.TextXAlignment.Left;nl.TextTruncate=Enum.TextTruncate.AtEnd;nl.ZIndex=7;nl.Parent=row
         local infoLbl=Instance.new("TextLabel");infoLbl.Name="InfoLbl";infoLbl.Size=UDim2.new(0,140,0,10);infoLbl.Position=UDim2.new(0,58,0,19);infoLbl.BackgroundTransparency=1;infoLbl.Font=Enum.Font.Gotham;infoLbl.TextSize=8;infoLbl.TextXAlignment=Enum.TextXAlignment.Left;infoLbl.ZIndex=7;infoLbl.RichText=true;infoLbl.Parent=row
         local function updateInfo() if not player or not player.Parent then return end;local p={};table.insert(p,'<font color="#50506A">@'..player.Name..'</font>');local base=getPlayerBase(player);if base then local bc=getBaseColor(base);table.insert(p,'<font color="'..string.format("#%02X%02X%02X",math.floor(bc.R*255),math.floor(bc.G*255),math.floor(bc.B*255))..'">'..base..'</font>') end;local dist=getDistanceTo(player);if dist then table.insert(p,'<font color="#50506A">'..dist..'m</font>') end;if playerHasRPG(player) then table.insert(p,'<font color="#6237D2">RPG</font>') end;infoLbl.Text=table.concat(p,'  ') end;updateInfo()
-        local shBtn=Instance.new("TextButton");shBtn.Name="ShieldIcon";shBtn.Text="⚡";shBtn.Size=UDim2.new(0,18,0,18);shBtn.Position=UDim2.new(1,-42,0.5,-9);shBtn.BackgroundColor3=C.Shield;shBtn.BackgroundTransparency=0.7;shBtn.TextColor3=C.Shield;shBtn.Font=Enum.Font.GothamBold;shBtn.TextSize=11;shBtn.AutoButtonColor=false;shBtn.BorderSizePixel=0;shBtn.ZIndex=8;shBtn.Visible=false;shBtn.Parent=row;cr(shBtn,5);shBtn.MouseButton1Click:Connect(function() breakShield(player) end)
+        local shBtn=Instance.new("TextButton");shBtn.Name="ShieldIcon";shBtn.Text="⚡";shBtn.Size=UDim2.new(0,18,0,18);shBtn.Position=UDim2.new(1,-42,0.5,-9);shBtn.BackgroundColor3=C.Shield;shBtn.BackgroundTransparency=0.7;shBtn.TextColor3=C.Shield;shBtn.Font=Enum.Font.GothamBold;shBtn.TextSize=11;shBtn.AutoButtonColor=false;shBtn.BorderSizePixel=0;shBtn.ZIndex=8;shBtn.Visible=false;shBtn.Parent=row;cr(shBtn,5);shBtn.MouseButton1Click:Connect(function() breakShield(player);notify("Breaking "..player.DisplayName.."'s shield",C.Shield,2) end)
         local wlBtn=Instance.new("TextButton");wlBtn.Name="WL";wlBtn.Text="🛡️";wlBtn.Size=UDim2.new(0,18,0,18);wlBtn.Position=UDim2.new(1,-20,0.5,-9);wlBtn.BackgroundColor3=C.Input;wlBtn.TextColor3=C.TextMute;wlBtn.Font=Enum.Font.GothamBold;wlBtn.TextSize=11;wlBtn.AutoButtonColor=false;wlBtn.BorderSizePixel=0;wlBtn.ZIndex=8;wlBtn.Parent=row;cr(wlBtn,5)
         local clickBtn=Instance.new("TextButton");clickBtn.Size=UDim2.new(1,-46,1,0);clickBtn.BackgroundTransparency=1;clickBtn.Text="";clickBtn.ZIndex=8;clickBtn.Parent=row
+        row.MouseEnter:Connect(function() showHoverPreview(player,row) end)
+        row.MouseLeave:Connect(function() hideHoverPreview() end)
         local function vis() if wlP[player] then row.BackgroundColor3=Color3.fromRGB(20,28,50);rowStroke.Color=C.WL;wlBtn.BackgroundColor3=C.WL;wlBtn.TextColor3=C.White;cb.BackgroundColor3=C.Input;cbStroke.Color=C.Border;cm.Text="";nl.TextColor3=C.WLA
         elseif selP[player] then row.BackgroundColor3=C.Sel;rowStroke.Color=C.SelBrd;cb.BackgroundColor3=C.Accent;cbStroke.Color=C.Accent;cm.Text="v";wlBtn.BackgroundColor3=C.Input;wlBtn.TextColor3=C.TextMute;nl.TextColor3=C.Text
         else row.BackgroundColor3=C.Card;rowStroke.Color=C.Border;cb.BackgroundColor3=C.Input;cbStroke.Color=C.Border;cm.Text="";wlBtn.BackgroundColor3=C.Input;wlBtn.TextColor3=C.TextMute;nl.TextColor3=C.Text end end
@@ -503,9 +583,12 @@ do
     pToggle.MouseButton1Click:Connect(function() pSpamOn=not pSpamOn
         if pSpamOn then local n=0;for _ in pairs(selP) do n+=1 end;if n==0 then pStatLbl.Text="Select targets!";pStatLbl.TextColor3=C.Danger;pSpamOn=false;return end;if not rpgReady then pStatLbl.Text="No RPG!";pStatLbl.TextColor3=C.Danger;pSpamOn=false;return end
             pToggle.Text="STOP PLAYERS";pGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(10,110,75)),ColorSequenceKeypoint.new(1,Color3.fromRGB(15,75,55))});pStatLbl.Text="Active — "..n;pStatLbl.TextColor3=C.Success
+            startPulse(pToggle,"pToggle");notify("Player spam started — "..n.." targets",C.Success,3)
             pThreads["main"]=task.spawn(function() while pSpamOn do for p in pairs(selP) do if p and p.Parent and p.Character then if wlP[p] then continue end;if not ignoreShield and isShielded(p) then if autoBreakShield then breakShield(p) end;continue end;for i=1,clickPower do task.spawn(attackPlayer,p) end end end;task.wait(0.05) end end)
             for i=1,3 do pThreads["t"..i]=task.spawn(function() while pSpamOn do for p in pairs(selP) do if p and p.Parent and p.Character then task.spawn(attackPlayer,p) end end;task.wait(0.03) end end) end
-        else pToggle.Text="START PLAYERS";pGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});pStatLbl.Text="Stopped";pStatLbl.TextColor3=C.TextMute;for _,th in pairs(pThreads) do pcall(task.cancel,th) end;pThreads={} end end)
+        else pToggle.Text="START PLAYERS";pGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});pStatLbl.Text="Stopped";pStatLbl.TextColor3=C.TextMute
+            stopPulse(pToggle,"pToggle");notify("Player spam stopped",C.TextMute,2)
+            for _,th in pairs(pThreads) do pcall(task.cancel,th) end;pThreads={} end end)
 end
 
 local vScroll, vLay, vStatLbl, vCntLbl, vToggle, vGrad
@@ -514,13 +597,10 @@ local updVStat, makeVehRow, refreshVeh
 do
     local vt=Instance.new("TextLabel");vt.Text="VEHICLES";vt.Size=UDim2.new(0.5,0,0,24);vt.Position=UDim2.new(0,4,0,6);vt.BackgroundTransparency=1;vt.TextColor3=C.Text;vt.Font=Enum.Font.GothamBlack;vt.TextSize=15;vt.TextXAlignment=Enum.TextXAlignment.Left;vt.ZIndex=5;vt.Parent=vContent
     vCntLbl=Instance.new("TextLabel");vCntLbl.Size=UDim2.new(0.5,-48,0,24);vCntLbl.Position=UDim2.new(0.5,0,0,6);vCntLbl.BackgroundTransparency=1;vCntLbl.TextColor3=C.TextMute;vCntLbl.Font=Enum.Font.Gotham;vCntLbl.TextSize=10;vCntLbl.TextXAlignment=Enum.TextXAlignment.Right;vCntLbl.ZIndex=5;vCntLbl.Parent=vContent
-
     vScroll=Instance.new("ScrollingFrame");vScroll.Size=UDim2.new(1,0,0,260);vScroll.Position=UDim2.new(0,0,0,34);vScroll.BackgroundColor3=C.Bg;vScroll.BackgroundTransparency=0.3;vScroll.ScrollBarThickness=3;vScroll.ScrollBarImageColor3=C.Accent;vScroll.BorderSizePixel=0;vScroll.CanvasSize=UDim2.new(0,0,0,0);vScroll.ZIndex=4;vScroll.Parent=vContent;cr(vScroll,8);sk(vScroll,C.Border,1,0.5)
     vLay=Instance.new("UIListLayout");vLay.Padding=UDim.new(0,3);vLay.Parent=vScroll;pad(vScroll,4,4,4,4)
-
     vStatLbl=Instance.new("TextLabel");vStatLbl.Size=UDim2.new(1,0,0,18);vStatLbl.Position=UDim2.new(0,0,0,300);vStatLbl.BackgroundColor3=C.Card;vStatLbl.BackgroundTransparency=0.3;vStatLbl.TextColor3=C.TextMute;vStatLbl.Font=Enum.Font.Gotham;vStatLbl.TextSize=10;vStatLbl.ZIndex=4;vStatLbl.Parent=vContent;cr(vStatLbl,6)
     updVStat = function() local n=0;for _ in pairs(selV) do n+=1 end;if n==0 then vStatLbl.Text="No targets";vStatLbl.TextColor3=C.TextMute else vStatLbl.Text=n.." target"..(n>1 and "s" or "").." + ESP";vStatLbl.TextColor3=C.Success end end
-
     makeVehRow = function(tgt)
         local mdl=tgt.Model;local row=Instance.new("Frame");row.Name=tgt.Name;row.Size=UDim2.new(1,-4,0,40);row.BackgroundColor3=C.Card;row.BorderSizePixel=0;row.ZIndex=5;row.Parent=vScroll;cr(row,7);local rowStroke=sk(row,C.Border,1,0.35);addRowGradient(row)
         local cb=Instance.new("Frame");cb.Size=UDim2.new(0,14,0,14);cb.Position=UDim2.new(0,6,0.5,-7);cb.BackgroundColor3=C.Input;cb.BorderSizePixel=0;cb.ZIndex=6;cb.Parent=row;cr(cb,4);local cbStroke=sk(cb,C.Border,1,0)
@@ -537,7 +617,6 @@ do
             else selV[mdl]={Model=mdl,HRP=tgt.HRP,Type=tgt.Type,Name=tgt.Name};if not vehicleESP[mdl] and mdl.Parent and tgt.HRP and tgt.HRP.Parent then vehicleESP[mdl]=createVehESP(mdl,tgt.HRP,tgt.Type) end end;vis();updVStat() end)
         vehEl[mdl]={row=row,vis=vis,tgt=tgt,updateInfo=updateVehInfo}
     end
-
     refreshVeh = function()
         for m,e in pairs(vehEl) do e.row:Destroy() end;vehEl={};scanVehicles()
         local keep={};for _,t in ipairs(vehInst) do if selV[t.Model] then keep[t.Model]={Model=t.Model,HRP=t.HRP,Type=t.Type,Name=t.Name} end end
@@ -545,43 +624,38 @@ do
         for _,t in ipairs(vehInst) do makeVehRow(t);if selV[t.Model] then vehEl[t.Model].vis() end end
         vCntLbl.Text=#vehInst.." found";task.defer(function() vScroll.CanvasSize=UDim2.new(0,0,0,vLay.AbsoluteContentSize.Y+8) end);updVStat()
     end
-
     local function makeSmallBtn(text,xPos,xSize,parent) local btn=Instance.new("TextButton");btn.Text=text;btn.Size=UDim2.new(xSize,-3,1,0);btn.Position=UDim2.new(xPos,1,0,0);btn.BackgroundColor3=C.Card;btn.TextColor3=C.Text;btn.Font=Enum.Font.GothamBold;btn.TextSize=9;btn.AutoButtonColor=false;btn.BorderSizePixel=0;btn.ZIndex=5;btn.Parent=parent;cr(btn,5);return btn end
-
     local vBtnFrame=Instance.new("Frame");vBtnFrame.Size=UDim2.new(1,0,0,22);vBtnFrame.Position=UDim2.new(0,0,0,322);vBtnFrame.BackgroundTransparency=1;vBtnFrame.ZIndex=4;vBtnFrame.Parent=vContent
     local vSelAll=makeSmallBtn("Select All",0,0.5,vBtnFrame);local vClearAll=makeSmallBtn("Clear All",0.5,0.5,vBtnFrame)
     vSelAll.MouseButton1Click:Connect(function() for m,e in pairs(vehEl) do selV[m]={Model=m,HRP=e.tgt.HRP,Type=e.tgt.Type,Name=e.tgt.Name};e.vis();if not vehicleESP[m] and m.Parent and e.tgt.HRP and e.tgt.HRP.Parent then vehicleESP[m]=createVehESP(m,e.tgt.HRP,e.tgt.Type) end end;updVStat() end)
     vClearAll.MouseButton1Click:Connect(function() selV={};for _,e in pairs(vehEl) do e.vis() end;for mdl,esp in pairs(vehicleESP) do destroyVehESP(esp) end;vehicleESP={};updVStat() end)
-
     vToggle=Instance.new("TextButton");vToggle.Text="START VEHICLES";vToggle.Size=UDim2.new(1,0,0,34);vToggle.Position=UDim2.new(0,0,0,350);vToggle.BackgroundColor3=C.AccentD;vToggle.TextColor3=C.White;vToggle.Font=Enum.Font.GothamBlack;vToggle.TextSize=12;vToggle.AutoButtonColor=false;vToggle.BorderSizePixel=0;vToggle.ZIndex=5;vToggle.Parent=vContent;cr(vToggle,8)
     vGrad=Instance.new("UIGradient");vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vGrad.Rotation=90;vGrad.Parent=vToggle
-
     vToggle.MouseButton1Click:Connect(function() vSpamOn=not vSpamOn
         if vSpamOn then local n=0;for _ in pairs(selV) do n+=1 end;if n==0 then vStatLbl.Text="Select targets!";vStatLbl.TextColor3=C.Danger;vSpamOn=false;return end;if not rpgReady then vStatLbl.Text="No RPG!";vStatLbl.TextColor3=C.Danger;vSpamOn=false;return end
             vToggle.Text="STOP VEHICLES";vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(10,110,75)),ColorSequenceKeypoint.new(1,Color3.fromRGB(15,75,55))});vStatLbl.Text="Active — "..n;vStatLbl.TextColor3=C.Success
+            startPulse(vToggle,"vToggle");notify("Vehicle spam started — "..n.." targets",C.Success,3)
             vThreads["main"]=task.spawn(function() while vSpamOn do for _,td in pairs(selV) do if vSpamOn and td.Model and td.Model.Parent then attackVehicle(td);task.wait(0.05) end end;task.wait(0.1) end end)
             for i=1,3 do vThreads["t"..i]=task.spawn(function() while vSpamOn do for _,td in pairs(selV) do if vSpamOn and td.Model and td.Model.Parent then task.spawn(attackVehicle,td) end end;task.wait(0.03) end end) end
-        else vToggle.Text="START VEHICLES";vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vStatLbl.Text="Stopped";vStatLbl.TextColor3=C.TextMute;for _,th in pairs(vThreads) do pcall(task.cancel,th) end;vThreads={} end end)
+        else vToggle.Text="START VEHICLES";vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vStatLbl.Text="Stopped";vStatLbl.TextColor3=C.TextMute
+            stopPulse(vToggle,"vToggle");notify("Vehicle spam stopped",C.TextMute,2)
+            for _,th in pairs(vThreads) do pcall(task.cancel,th) end;vThreads={} end end)
 end
 
 do
     local ft=Instance.new("TextLabel");ft.Text="AUTO FARM";ft.Size=UDim2.new(1,0,0,24);ft.Position=UDim2.new(0,4,0,6);ft.BackgroundTransparency=1;ft.TextColor3=C.Farm;ft.Font=Enum.Font.GothamBlack;ft.TextSize=15;ft.TextXAlignment=Enum.TextXAlignment.Left;ft.ZIndex=5;ft.Parent=fContent
-
     local fStats=Instance.new("Frame");fStats.Size=UDim2.new(1,0,0,60);fStats.Position=UDim2.new(0,0,0,34);fStats.BackgroundColor3=C.Card;fStats.BorderSizePixel=0;fStats.ZIndex=4;fStats.Parent=fContent;cr(fStats,8)
     local function makeFStat(text,yPos,color) local lbl=Instance.new("TextLabel");lbl.Text=text;lbl.Size=UDim2.new(1,-14,0,14);lbl.Position=UDim2.new(0,7,0,yPos);lbl.BackgroundTransparency=1;lbl.TextColor3=color or C.Text;lbl.Font=Enum.Font.Gotham;lbl.TextSize=10;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.ZIndex=5;lbl.Parent=fStats;return lbl end
     local fCycleLbl=makeFStat("Cycles: 0",4,C.TextSub)
     local fTotalLbl=makeFStat("Total: 0 | ~$0",22,C.Farm);fTotalLbl.Font=Enum.Font.GothamBold
     local fStatusLbl=makeFStat("Status: Idle",40,C.TextMute)
-
     local function makeFSetting(labelText,defaultVal,yPos) local frame=Instance.new("Frame");frame.Size=UDim2.new(1,0,0,24);frame.Position=UDim2.new(0,0,0,yPos);frame.BackgroundColor3=C.Card;frame.BorderSizePixel=0;frame.ZIndex=4;frame.Parent=fContent;cr(frame,6)
         local lbl=Instance.new("TextLabel");lbl.Text=labelText;lbl.Size=UDim2.new(0,130,1,0);lbl.Position=UDim2.new(0,6,0,0);lbl.BackgroundTransparency=1;lbl.TextColor3=C.TextSub;lbl.Font=Enum.Font.Gotham;lbl.TextSize=10;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.ZIndex=5;lbl.Parent=frame
         local box=Instance.new("TextBox");box.Text=tostring(defaultVal);box.Size=UDim2.new(0,45,0,16);box.Position=UDim2.new(1,-50,0.5,-8);box.BackgroundColor3=C.Input;box.TextColor3=C.Text;box.Font=Enum.Font.GothamBold;box.TextSize=10;box.BorderSizePixel=0;box.ClearTextOnFocus=true;box.ZIndex=5;box.Parent=frame;cr(box,4);return box end
-
     local fDistBox=makeFSetting("Max Distance:",FARM_MAX_DIST,100)
     local fHitsBox=makeFSetting("Hits per object:",FARM_HITS,128)
     fDistBox.FocusLost:Connect(function() local n=tonumber(fDistBox.Text);if n and n>0 then FARM_MAX_DIST=n else fDistBox.Text=tostring(FARM_MAX_DIST) end end)
     fHitsBox.FocusLost:Connect(function() local n=tonumber(fHitsBox.Text);if n and n>=1 then FARM_HITS=math.floor(n) else fHitsBox.Text=tostring(FARM_HITS) end end)
-
     local function farmLoop()
         while farmActive do char=plr.Character;if not char then fStatusLbl.Text="Waiting...";task.wait(1);continue end;hrp=char:FindFirstChild("HumanoidRootPart");if not hrp then task.wait(1);continue end
             if not rpgReady then pcall(function() rvEv=game.ReplicatedStorage.RocketSystem.Events;fxEv=rvEv.RocketReloadedFX;fireEv=rvEv.FireRocketReplicated;hitEv=rvEv.RocketHit;rocketModel=game.ReplicatedStorage.RocketSystem.Rockets["RPG Rocket"];rpgReady=true end) end
@@ -589,24 +663,19 @@ do
             local alive=scanAlive()
             if #alive==0 then fStatusLbl.Text="Nothing in range";fStatusLbl.TextColor3=C.TextMute;task.wait(FARM_RESCAN);continue end
             farmCycleCount+=1;fCycleLbl.Text="Cycles: "..farmCycleCount;fStatusLbl.Text="Destroying "..#alive.."...";fStatusLbl.TextColor3=C.Success
-            for _,obj in ipairs(alive) do
-                if not farmActive then break end
-                if obj.HitPoint and obj.HitPoint.Parent then
-                    farmTotalDestroyed+=1
+            for _,obj in ipairs(alive) do if not farmActive then break end
+                if obj.HitPoint and obj.HitPoint.Parent then farmTotalDestroyed+=1
                     task.spawn(function() for h=1,FARM_HITS do fireRocket(obj.HitPoint.Position,obj.HitPoint) end end)
-                    fTotalLbl.Text="Total: "..farmTotalDestroyed.." | ~$"..(farmTotalDestroyed*200)
-                end
-                task.wait()
-            end
+                    fTotalLbl.Text="Total: "..farmTotalDestroyed.." | ~$"..(farmTotalDestroyed*200) end;task.wait() end
             fStatusLbl.Text="Cycle "..farmCycleCount.." done";fStatusLbl.TextColor3=C.TextSub;task.wait(FARM_RESCAN) end
     end
-
     local fToggle=Instance.new("TextButton");fToggle.Text="START AUTO FARM";fToggle.Size=UDim2.new(1,0,0,38);fToggle.Position=UDim2.new(0,0,0,160);fToggle.BackgroundColor3=C.FarmD;fToggle.TextColor3=C.White;fToggle.Font=Enum.Font.GothamBlack;fToggle.TextSize=13;fToggle.AutoButtonColor=false;fToggle.BorderSizePixel=0;fToggle.ZIndex=5;fToggle.Parent=fContent;cr(fToggle,8)
     local fGrad=Instance.new("UIGradient");fGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(200,150,20)),ColorSequenceKeypoint.new(1,Color3.fromRGB(180,80,20))});fGrad.Rotation=90;fGrad.Parent=fToggle
-
     fToggle.MouseButton1Click:Connect(function() farmActive=not farmActive
-        if farmActive then fToggle.Text="STOP AUTO FARM";fGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(10,150,100)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,100,70))});fStatusLbl.Text="Starting...";fStatusLbl.TextColor3=C.Success;farmThread=task.spawn(farmLoop)
-        else fToggle.Text="START AUTO FARM";fGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(200,150,20)),ColorSequenceKeypoint.new(1,Color3.fromRGB(180,80,20))});fStatusLbl.Text="Stopped";fStatusLbl.TextColor3=C.TextMute;if farmThread then pcall(task.cancel,farmThread);farmThread=nil end end end)
+        if farmActive then fToggle.Text="STOP AUTO FARM";fGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(10,150,100)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,100,70))});fStatusLbl.Text="Starting...";fStatusLbl.TextColor3=C.Success
+            startPulse(fToggle,"fToggle");notify("Auto farm started",C.Farm,3);farmThread=task.spawn(farmLoop)
+        else fToggle.Text="START AUTO FARM";fGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(200,150,20)),ColorSequenceKeypoint.new(1,Color3.fromRGB(180,80,20))});fStatusLbl.Text="Stopped";fStatusLbl.TextColor3=C.TextMute
+            stopPulse(fToggle,"fToggle");notify("Auto farm stopped",C.TextMute,2);if farmThread then pcall(task.cancel,farmThread);farmThread=nil end end end)
 end
 
 local dDotCount, dStatusLbl, drawAtMouse
@@ -614,26 +683,19 @@ local dDotCount, dStatusLbl, drawAtMouse
 do
     local dt=Instance.new("TextLabel");dt.Text="RPG DRAW";dt.Size=UDim2.new(0.5,0,0,24);dt.Position=UDim2.new(0,4,0,6);dt.BackgroundTransparency=1;dt.TextColor3=C.Draw;dt.Font=Enum.Font.GothamBlack;dt.TextSize=15;dt.TextXAlignment=Enum.TextXAlignment.Left;dt.ZIndex=5;dt.Parent=dContent
     dDotCount=Instance.new("TextLabel");dDotCount.Size=UDim2.new(0.5,-48,0,24);dDotCount.Position=UDim2.new(0.5,0,0,6);dDotCount.BackgroundTransparency=1;dDotCount.TextColor3=C.TextMute;dDotCount.Font=Enum.Font.Gotham;dDotCount.TextSize=10;dDotCount.TextXAlignment=Enum.TextXAlignment.Right;dDotCount.ZIndex=5;dDotCount.Parent=dContent
-
     local dCanvas=Instance.new("Frame");dCanvas.Size=UDim2.new(1,0,0,225);dCanvas.Position=UDim2.new(0,0,0,32);dCanvas.BackgroundColor3=Color3.fromRGB(5,5,8);dCanvas.BorderSizePixel=0;dCanvas.ClipsDescendants=true;dCanvas.ZIndex=4;dCanvas.Parent=dContent;cr(dCanvas,6);sk(dCanvas,Color3.fromRGB(30,30,42),1,0.3)
-
     local dCursor=Instance.new("Frame");dCursor.Size=UDim2.new(0,BRUSH_SIZE,0,BRUSH_SIZE);dCursor.BackgroundColor3=Color3.fromRGB(98,55,210);dCursor.BackgroundTransparency=0.5;dCursor.BorderSizePixel=0;dCursor.ZIndex=10;dCursor.Visible=false;dCursor.Parent=dCanvas;Instance.new("UICorner",dCursor).CornerRadius=UDim.new(1,0)
     local dDotsContainer=Instance.new("Frame");dDotsContainer.Size=UDim2.new(1,0,1,0);dDotsContainer.BackgroundTransparency=1;dDotsContainer.ZIndex=5;dDotsContainer.Parent=dCanvas
-
     local function dRedrawAll() for _,child in ipairs(dDotsContainer:GetChildren()) do child:Destroy() end;for _,p in ipairs(drawPoints) do local dot=Instance.new("Frame");dot.Size=UDim2.new(0,p.s or BRUSH_SIZE,0,p.s or BRUSH_SIZE);dot.Position=UDim2.new(0,p.x-(p.s or BRUSH_SIZE)/2,0,p.y-(p.s or BRUSH_SIZE)/2);dot.BackgroundColor3=Color3.fromRGB(255,255,255);dot.BorderSizePixel=0;dot.ZIndex=6;dot.Parent=dDotsContainer end end
     local function dAddDot(x,y) local p={x=x,y=y,s=BRUSH_SIZE};table.insert(drawPoints,p);table.insert(drawStrokePoints,p);local dot=Instance.new("Frame");dot.Size=UDim2.new(0,BRUSH_SIZE,0,BRUSH_SIZE);dot.Position=UDim2.new(0,x-BRUSH_SIZE/2,0,y-BRUSH_SIZE/2);dot.BackgroundColor3=Color3.fromRGB(255,255,255);dot.BorderSizePixel=0;dot.ZIndex=6;dot.Parent=dDotsContainer end
     local function dEraseDots(x,y) local radius=BRUSH_SIZE*ERASE_MULT;local newPts={};local removed=false;for _,p in ipairs(drawPoints) do local dx=p.x-x;local dy=p.y-y;if math.sqrt(dx*dx+dy*dy)>radius then table.insert(newPts,p) else removed=true end end;if removed then drawPoints=newPts;dRedrawAll() end end
     local function dSaveUndo() if #drawStrokePoints>0 then local snap={};for _,p in ipairs(drawStrokePoints) do table.insert(snap,p) end;table.insert(drawUndoStack,snap);if #drawUndoStack>MAX_UNDO then table.remove(drawUndoStack,1) end;drawStrokePoints={} end end
     local function dUndo() if #drawUndoStack==0 then return end;local last=table.remove(drawUndoStack);local rem={};for _,sp in ipairs(last) do rem[sp]=true end;local newPts={};for _,p in ipairs(drawPoints) do if not rem[p] then table.insert(newPts,p) end end;drawPoints=newPts;dRedrawAll() end
-
     local function getCanvasPos() local mpos=UIS:GetMouseLocation();local cpos=dCanvas.AbsolutePosition;local csize=dCanvas.AbsoluteSize;local rel=mpos-cpos-Vector2.new(0,36);return rel,rel.X>=0 and rel.X<=csize.X and rel.Y>=0 and rel.Y<=csize.Y end
-
     dCanvas.InputBegan:Connect(function(input)
         if input.UserInputType==Enum.UserInputType.MouseButton1 then drawMouseDown=true;drawEraseMode=false;drawStrokePoints={};local pos,valid=getCanvasPos();if valid then drawLastPos=pos;dAddDot(pos.X,pos.Y) end
-        elseif input.UserInputType==Enum.UserInputType.MouseButton2 then drawMouseDown=true;drawEraseMode=true;local pos,valid=getCanvasPos();if valid then drawLastPos=pos;dEraseDots(pos.X,pos.Y) end end
-    end)
+        elseif input.UserInputType==Enum.UserInputType.MouseButton2 then drawMouseDown=true;drawEraseMode=true;local pos,valid=getCanvasPos();if valid then drawLastPos=pos;dEraseDots(pos.X,pos.Y) end end end)
     dCanvas.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then drawMouseDown=false;drawLastPos=nil;dSaveUndo() elseif input.UserInputType==Enum.UserInputType.MouseButton2 then drawMouseDown=false;drawLastPos=nil end end)
-
     RS.RenderStepped:Connect(function()
         if currentTab~="draw" then dCursor.Visible=false;return end
         local pos,valid=getCanvasPos()
@@ -642,27 +704,20 @@ do
         if not drawMouseDown or not drawLastPos or not valid then return end
         local dx=pos.X-drawLastPos.X;local dy=pos.Y-drawLastPos.Y;local dist=math.sqrt(dx*dx+dy*dy);if dist<DRAW_SPACING then return end
         local steps=math.max(math.floor(dist/DRAW_SPACING),1)
-        for i=1,steps do local t=i/steps;local ix=drawLastPos.X+dx*t;local iy=drawLastPos.Y+dy*t;if drawEraseMode then dEraseDots(ix,iy) else dAddDot(ix,iy) end end;drawLastPos=pos
-    end)
-
+        for i=1,steps do local t=i/steps;local ix=drawLastPos.X+dx*t;local iy=drawLastPos.Y+dy*t;if drawEraseMode then dEraseDots(ix,iy) else dAddDot(ix,iy) end end;drawLastPos=pos end)
     createSlider(dContent,"Brush",1,8,BRUSH_SIZE,262,function(v) BRUSH_SIZE=v end)
     createSlider(dContent,"Scale",1,30,DRAW_SCALE,282,function(v) DRAW_SCALE=v end)
     createSlider(dContent,"Space",4,20,DRAW_SPACING,302,function(v) DRAW_SPACING=v end)
-
     local dBindRow=Instance.new("Frame");dBindRow.Size=UDim2.new(1,0,0,18);dBindRow.Position=UDim2.new(0,0,0,324);dBindRow.BackgroundColor3=Color3.fromRGB(12,12,17);dBindRow.BorderSizePixel=0;dBindRow.ZIndex=4;dBindRow.Parent=dContent;cr(dBindRow,4)
     local dBindLbl=Instance.new("TextLabel");dBindLbl.Text="Bind: "..DRAW_BIND.Name;dBindLbl.Size=UDim2.new(1,-28,1,0);dBindLbl.Position=UDim2.new(0,4,0,0);dBindLbl.BackgroundTransparency=1;dBindLbl.TextColor3=Color3.fromRGB(70,70,90);dBindLbl.Font=Enum.Font.Gotham;dBindLbl.TextSize=8;dBindLbl.TextXAlignment=Enum.TextXAlignment.Left;dBindLbl.ZIndex=5;dBindLbl.Parent=dBindRow
     local dBindBtn=Instance.new("TextButton");dBindBtn.Text="set";dBindBtn.Size=UDim2.new(0,22,0,12);dBindBtn.Position=UDim2.new(1,-26,0.5,-6);dBindBtn.BackgroundColor3=Color3.fromRGB(32,32,45);dBindBtn.TextColor3=Color3.fromRGB(130,130,150);dBindBtn.Font=Enum.Font.GothamBold;dBindBtn.TextSize=7;dBindBtn.AutoButtonColor=false;dBindBtn.BorderSizePixel=0;dBindBtn.ZIndex=5;dBindBtn.Parent=dBindRow;cr(dBindBtn,3)
     dBindBtn.MouseButton1Click:Connect(function() dWaitBind=true;dBindBtn.Text="?";dBindBtn.BackgroundColor3=Color3.fromRGB(80,45,180) end)
-
     local dBtnRow=Instance.new("Frame");dBtnRow.Size=UDim2.new(1,0,0,26);dBtnRow.Position=UDim2.new(0,0,0,346);dBtnRow.BackgroundTransparency=1;dBtnRow.ZIndex=4;dBtnRow.Parent=dContent
     local function dMakeBtn(text,xPos,xSize,color) local btn=Instance.new("TextButton");btn.Text=text;btn.Size=UDim2.new(xSize,-2,1,0);btn.Position=UDim2.new(xPos,1,0,0);btn.BackgroundColor3=color;btn.TextColor3=Color3.fromRGB(200,200,215);btn.Font=Enum.Font.GothamBold;btn.TextSize=10;btn.AutoButtonColor=false;btn.BorderSizePixel=0;btn.ZIndex=5;btn.Parent=dBtnRow;cr(btn,5);return btn end
-
     local dUndoBtn=dMakeBtn("UNDO",0,0.25,Color3.fromRGB(35,35,55));local dClearBtn=dMakeBtn("CLEAR",0.25,0.25,Color3.fromRGB(50,20,20));local dDrawBtn=dMakeBtn("DRAW",0.5,0.5,Color3.fromRGB(18,60,35))
     dStatusLbl=Instance.new("TextLabel");dStatusLbl.Size=UDim2.new(1,0,0,14);dStatusLbl.Position=UDim2.new(0,0,0,376);dStatusLbl.BackgroundTransparency=1;dStatusLbl.TextColor3=Color3.fromRGB(50,50,68);dStatusLbl.Font=Enum.Font.Gotham;dStatusLbl.TextSize=8;dStatusLbl.TextXAlignment=Enum.TextXAlignment.Left;dStatusLbl.ZIndex=4;dStatusLbl.Parent=dContent
-
     dUndoBtn.MouseButton1Click:Connect(function() dUndo();dStatusLbl.Text="Undo | "..#drawPoints.." dots" end)
     dClearBtn.MouseButton1Click:Connect(function() drawPoints={};drawUndoStack={};drawStrokePoints={};for _,child in ipairs(dDotsContainer:GetChildren()) do child:Destroy() end;dStatusLbl.Text="Cleared" end)
-
     drawAtMouse = function()
         char=plr.Character;if not char then return end;hrp=char:FindFirstChild("HumanoidRootPart");if not hrp then return end
         if not rpgReady then dStatusLbl.Text="No RPG system";dStatusLbl.TextColor3=C.Danger;return end;local t=findRPG();if not t then dStatusLbl.Text="Need RPG";dStatusLbl.TextColor3=C.Danger;return end
@@ -671,12 +726,11 @@ do
         local minX,maxX,minY,maxY=math.huge,-math.huge,math.huge,-math.huge
         for _,p in ipairs(drawPoints) do if p.x<minX then minX=p.x end;if p.x>maxX then maxX=p.x end;if p.y<minY then minY=p.y end;if p.y>maxY then maxY=p.y end end
         local centerX=(minX+maxX)/2;local centerY=(minY+maxY)/2;local sf=DRAW_SCALE/math.max(BRUSH_SIZE,1)
-        dStatusLbl.Text="Firing "..#drawPoints.."...";dStatusLbl.TextColor3=C.Success
+        dStatusLbl.Text="Firing "..#drawPoints.."...";dStatusLbl.TextColor3=C.Success;notify("Drawing "..#drawPoints.." explosions",C.Draw,2)
         for _,p in ipairs(drawPoints) do task.spawn(function() local relX=(p.x-centerX)*sf;local relY=-(p.y-centerY)*sf;fireAtDraw(hitPos+right*relX+up*relY) end) end
         task.delay(0.3,function() dStatusLbl.Text=#drawPoints.." explosions fired";dStatusLbl.TextColor3=Color3.fromRGB(140,140,160) end)
     end
     dDrawBtn.MouseButton1Click:Connect(drawAtMouse)
-
     UIS.InputBegan:Connect(function(input,gp)
         if gp then return end
         if dWaitBind then if input.KeyCode~=Enum.KeyCode.Unknown then DRAW_BIND=input.KeyCode;dBindLbl.Text="Bind: "..input.KeyCode.Name;dBindBtn.Text="set";dBindBtn.BackgroundColor3=Color3.fromRGB(32,32,45);dWaitBind=false end;return end
@@ -693,7 +747,15 @@ do
     floatBtn.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then fd2=true;fds2=i.Position;fsp2=floatBtn.Position;i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then fd2=false end end) end end)
     floatBtn.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then fdi2=i end end)
     UIS.InputChanged:Connect(function(i) if i==fdi2 and fd2 then local d=i.Position-fds2;floatBtn.Position=UDim2.new(fsp2.X.Scale,fsp2.X.Offset+d.X,fsp2.Y.Scale,fsp2.Y.Offset+d.Y) end end)
-    floatBtn.MouseButton1Click:Connect(function() main.Visible=not main.Visible end)
+    floatBtn.MouseButton1Click:Connect(function()
+        if main.Visible then
+            TS:Create(main,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0),BackgroundTransparency=1}):Play()
+            task.wait(0.35);main.Visible=false;main.Size=UDim2.new(0,520,0,480);main.BackgroundTransparency=0
+        else
+            main.Visible=true;main.Size=UDim2.new(0,0,0,0);main.BackgroundTransparency=1
+            TS:Create(main,TweenInfo.new(0.5,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,520,0,480),BackgroundTransparency=0}):Play()
+        end
+    end)
 end
 
 plr.CharacterAdded:Connect(function(nc) char=nc;hrp=nc:WaitForChild("HumanoidRootPart");tool=nc:WaitForChild("RPG",5)
@@ -702,17 +764,17 @@ plr.CharacterAdded:Connect(function(nc) char=nc;hrp=nc:WaitForChild("HumanoidRoo
     if rpgReady and rpgDot then rpgDot.BackgroundColor3=C.Success end end)
 
 for _,p in pairs(Players:GetPlayers()) do createPlrEl(p) end;updOnline();updPStat();updateMyBase()
-Players.PlayerAdded:Connect(function(p) task.wait(0.5);createPlrEl(p);updOnline() end)
-Players.PlayerRemoving:Connect(function(p) removePlrEl(p) end)
+Players.PlayerAdded:Connect(function(p) task.wait(0.5);createPlrEl(p);updOnline();notify(p.DisplayName.." joined",C.TextSub,2) end)
+Players.PlayerRemoving:Connect(function(p) notify(p.DisplayName.." left",C.TextMute,2);removePlrEl(p) end)
 
 task.spawn(function() while true do for p,el in pairs(plrEl) do if p and p.Parent and el and el.Parent then local si=el:FindFirstChild("ShieldIcon");if si then si.Visible=isShielded(p) end;local uf=el:FindFirstChild("_updateFunc");if uf then pcall(function() uf:Fire() end) end end end
-    for m,e in pairs(vehEl) do if e.updateInfo and e.row and e.row.Parent then pcall(e.updateInfo) end end;updateMyBase();task.wait(1.5) end end)
+    for m,e in pairs(vehEl) do if e.updateInfo and e.row and e.row.Parent then pcall(e.updateInfo) end end;updateMyBase();task.wait(2) end end)
 
 refreshVeh()
-task.spawn(function() while true do task.wait(3);refreshVeh() end end)
-task.spawn(function() while true do if rpgDot and rpgDot.Parent then rpgDot.BackgroundColor3=(rpgReady and findRPG()) and C.Success or C.Danger end;task.wait(2) end end)
-
+task.spawn(function() while true do task.wait(4);refreshVeh() end end)
+task.spawn(function() while true do if rpgDot and rpgDot.Parent then rpgDot.BackgroundColor3=(rpgReady and findRPG()) and C.Success or C.Danger end;task.wait(3) end end)
 task.spawn(function() while true do for mdl,esp in pairs(vehicleESP) do if not selV[mdl] or not mdl.Parent then destroyVehESP(esp);vehicleESP[mdl]=nil else pcall(updateVehESP,esp) end end;task.wait(0.5) end end)
-
 task.spawn(function() while true do if dDotCount then dDotCount.Text=#drawPoints.." dots" end
-    if dStatusLbl and currentTab=="draw" and dStatusLbl.TextColor3==Color3.fromRGB(50,50,68) then dStatusLbl.Text="LMB draw | RMB erase | "..DRAW_BIND.Name.." fire" end;task.wait(0.5) end end)
+    if dStatusLbl and currentTab=="draw" and dStatusLbl.TextColor3==Color3.fromRGB(50,50,68) then dStatusLbl.Text="LMB draw | RMB erase | "..DRAW_BIND.Name.." fire" end;task.wait(1) end end)
+
+notify("Nazarkus RPG Hub loaded",C.Accent,4)
