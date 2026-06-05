@@ -61,6 +61,9 @@ do
         Vehicle="VEH",Submarine="SUB",Drone="DRONE",RC="RC"}
 end
 
+local selectAllPlayersActive = false
+local selectAllVehiclesActive = false
+
 local selP,wlP,plrEl = {},{},{}
 local selV,vehInst,vehEl = {},{},{}
 local pSpamOn,pThreads = false,{}
@@ -476,13 +479,17 @@ local function scanVehicles()
         if folder then pcall(function()
             for _,mdl in ipairs(folder:GetChildren()) do
                 if mdl:IsA("Model") then
+                    -- Проверка владельца: своя техника полностью игнорируется (не подсвечивается и не добавляется в список)
+                    local od=getOwnerData(mdl)
+                    if od and od.username == plr.Name then continue end
+
                     -- Проверка ХП: если у техники 0 или меньше ХП, то полностью её скипаем
                     local health, maxHealth = getVehicleHealth(mdl)
                     if health and health <= 0 then continue end
                     
                     local part=mdl:FindFirstChild("HumanoidRootPart") or mdl:FindFirstChild("Main") or mdl:FindFirstChild("RootPart") or mdl:FindFirstChild("Head") or mdl.PrimaryPart
                     if not part then for _,c in ipairs(mdl:GetChildren()) do if c:IsA("BasePart") then part=c;break end end end
-                    if part then local od=getOwnerData(mdl);table.insert(vehInst,{Name=mdl.Name,Type=typ,Model=mdl,HRP=part,Username=od.username,DisplayName=od.displayName,Base=od.base}) end
+                    if part then table.insert(vehInst,{Name=mdl.Name,Type=typ,Model=mdl,HRP=part,Username=od.username,DisplayName=od.displayName,Base=od.base}) end
                 end
             end
         end) end
@@ -579,7 +586,18 @@ local function updateVehESP(esp)
     if dist>ESP_CONFIG.MaxDistance then esp.bb.Enabled=false;return true end;esp.bb.Enabled=true;esp.bb.Adornee=esp.part
     esp.distLbl.Text=string.format("[%dm]",math.floor(dist))
     do
-        if health and maxHealth and maxHealth>0 then local pct=math.clamp(health/maxHealth,0,1);esp.hpBg.Visible=true;esp.hpFill.Size=UDim2.new(math.max(pct,0.01),0,1,0);esp.hpFill.BackgroundColor3=getHealthColor(pct);esp.hpText.Text=string.format("%d/%d",math.floor(health),math.floor(maxHealth));esp.hpText.TextColor3=getHealthColor(pct) else esp.hpBg.Visible=false;esp.hpText.Text="" end
+        if health and maxHealth and maxHealth>0 then 
+            local pct=math.clamp(health/maxHealth,0,1);
+            esp.hpBg.Visible=true;
+            esp.hpFill.Size=UDim2.new(math.max(pct,0.01),0,1,0);
+            esp.hpFill.BackgroundColor3=getHealthColor(pct);
+            -- Показываем здоровье в процентах вместо единиц
+            esp.hpText.Text=string.format("%d%%",math.floor(pct*100));
+            esp.hpText.TextColor3=getHealthColor(pct) 
+        else 
+            esp.hpBg.Visible=false;
+            esp.hpText.Text="" 
+        end
     end
     do local displayName,base
         pcall(function() local o=esp.model:GetAttribute("Owner") or esp.model:GetAttribute("Pilot") or esp.model:GetAttribute("KillOwner");if o and type(o)=="string" and o~="" then local p=Players:FindFirstChild(o);if p then displayName=p.DisplayName;if p.Team then base=p.Team.Name end else displayName=o end end end)
@@ -747,6 +765,12 @@ do
 
     createPlrEl = function(player)
         if player==plr or plrEl[player] then return end
+        
+        -- Если включен автоматический выбор всех, добавляем игрока в цели (если он не в вайтлисте)
+        if selectAllPlayersActive and not wlP[player] then
+            selP[player] = true
+        end
+
         local row=Instance.new("Frame");row.Name=player.Name;row.Size=UDim2.new(1,-4,0,40);row.BackgroundColor3=C.Card;row.BorderSizePixel=0;row.ZIndex=5;row.Parent=pScroll;cr(row,7);local rowStroke=sk(row,C.Border,1,0.35);addRowGradient(row)
         
         local cb=Instance.new("Frame");cb.Size=UDim2.new(0,14,0,14);cb.Position=UDim2.new(0,6,0.5,-7);cb.BackgroundColor3=C.Input;cb.BorderSizePixel=0;cb.ZIndex=6;cb.Parent=row;cr(cb,4);local cbStroke=sk(cb,C.Border,1,0)
@@ -782,6 +806,9 @@ do
         elseif selP[player] then row.BackgroundColor3=C.Sel;rowStroke.Color=C.SelBrd;wlBtn.BackgroundColor3=C.Input;wlBtn.TextColor3=C.TextMute;animateCheckbox(cb, cm, true);nl.TextColor3=C.Text
         else row.BackgroundColor3=C.Card;rowStroke.Color=C.Border;wlBtn.BackgroundColor3=C.Input;wlBtn.TextColor3=C.TextMute;animateCheckbox(cb, cm, false);nl.TextColor3=C.Text end end
         
+        -- Вызываем vis() изначально, чтобы применилось выделение, если игрок добавился под автоматическим Select All
+        vis()
+        
         clickBtn.MouseButton1Click:Connect(function() if wlP[player] then return end;selP[player]=not selP[player] or nil;vis();updPStat() end)
         wlBtn.MouseButton1Click:Connect(function() wlP[player]=not wlP[player] or nil;vis();updPStat() end)
         plrEl[player]=row;local bv=Instance.new("BindableEvent");bv.Name="_updateFunc";bv.Parent=row;bv.Event:Connect(updateInfo);if isShielded(player) then shBtn.Visible=true end
@@ -794,8 +821,49 @@ do
     local pSelAll=makeSmallBtn("Select All",0,0.33,pBtnFrame);local pClear=makeSmallBtn("Clear All",0.33,0.34,pBtnFrame);local pClearWL=makeSmallBtn("Clear WL",0.67,0.33,pBtnFrame)
     makeButtonInteractive(pSelAll); makeButtonInteractive(pClear); makeButtonInteractive(pClearWL)
     
-    pSelAll.MouseButton1Click:Connect(function() for p in pairs(plrEl) do if not wlP[p] then selP[p]=true end end;for p in pairs(plrEl) do if selP[p] then local el=plrEl[p];el.BackgroundColor3=C.Sel;local rStr=el:FindFirstChildOfClass("UIStroke");if rStr then rStr.Color=C.SelBrd end;local cb=el:FindFirstChildOfClass("Frame");if cb then local cm=cb:FindFirstChildOfClass("TextLabel");if cm then animateCheckbox(cb,cm,true) end end end end;updPStat() end)
-    pClear.MouseButton1Click:Connect(function() for p in pairs(selP) do selP[p]=nil end;for p,el in pairs(plrEl) do if not wlP[p] then el.BackgroundColor3=C.Card;local rStr=el:FindFirstChildOfClass("UIStroke");if rStr then rStr.Color=C.Border end;local cb=el:FindFirstChildOfClass("Frame");if cb then local cm=cb:FindFirstChildOfClass("TextLabel");if cm then animateCheckbox(cb,cm,false) end end end end;updPStat() end)
+    pSelAll.MouseButton1Click:Connect(function()
+        selectAllPlayersActive = not selectAllPlayersActive
+        if selectAllPlayersActive then
+            pSelAll.BackgroundColor3 = C.AccentD
+            pSelAll.TextColor3 = C.White
+            -- Выделяем всех текущих игроков
+            for p in pairs(plrEl) do 
+                if not wlP[p] then 
+                    selP[p]=true 
+                end 
+            end
+            for p in pairs(plrEl) do 
+                if selP[p] then 
+                    local el=plrEl[p]
+                    el.BackgroundColor3=C.Sel
+                    local rStr=el:FindFirstChildOfClass("UIStroke")
+                    if rStr then rStr.Color=C.SelBrd end
+                    local cb=el:FindFirstChildOfClass("Frame")
+                    if cb then 
+                        local cm=cb:FindFirstChildOfClass("TextLabel")
+                        if cm then animateCheckbox(cb,cm,true) end 
+                    end 
+                end 
+            end
+            notify("Auto-Select Players ENABLED", C.Success, 2)
+        else
+            pSelAll.BackgroundColor3 = C.Card
+            pSelAll.TextColor3 = C.Text
+            notify("Auto-Select Players DISABLED", C.TextMute, 2)
+        end
+        updPStat()
+    end)
+    
+    pClear.MouseButton1Click:Connect(function()
+        -- Выключаем автовыбор, если нажали очистку
+        if selectAllPlayersActive then
+            selectAllPlayersActive = false
+            pSelAll.BackgroundColor3 = C.Card
+            pSelAll.TextColor3 = C.Text
+        end
+        for p in pairs(selP) do selP[p]=nil end
+        for p,el in pairs(plrEl) do if not wlP[p] then el.BackgroundColor3=C.Card;local rStr=el:FindFirstChildOfClass("UIStroke");if rStr then rStr.Color=C.Border end;local cb=el:FindFirstChildOfClass("Frame");if cb then local cm=cb:FindFirstChildOfClass("TextLabel");if cm then animateCheckbox(cb,cm,false) end end end end;updPStat()
+    end)
     pClearWL.MouseButton1Click:Connect(function() for p in pairs(wlP) do wlP[p]=nil end;for _,el in pairs(plrEl) do local wl=el:FindFirstChild("WL");if wl then wl.BackgroundColor3=C.Input;wl.TextColor3=C.TextMute end;local rStr=el:FindFirstChildOfClass("UIStroke");if rStr then rStr.Color=C.Border end end;updPStat() end)
 
     pToggle=Instance.new("TextButton");pToggle.Text="START PLAYERS";pToggle.Size=UDim2.new(1,0,0,34);pToggle.Position=UDim2.new(0,0,0,306);pToggle.BackgroundColor3=C.AccentD;pToggle.TextColor3=C.White;pToggle.Font=Enum.Font.GothamBlack;pToggle.TextSize=12;pToggle.AutoButtonColor=false;pToggle.BorderSizePixel=0;pToggle.ZIndex=5;pToggle.Parent=pContent;cr(pToggle,8);sk(pToggle,C.Accent,1,0.2)
@@ -824,7 +892,17 @@ do
     updVStat = function() local n=0;for _ in pairs(selV) do n+=1 end;if n==0 then vStatLbl.Text="No targets";vStatLbl.TextColor3=C.TextMute else vStatLbl.Text=n.." target"..(n>1 and "s" or "").." + ESP";vStatLbl.TextColor3=C.Success end end
     
     makeVehRow = function(tgt)
-        local mdl=tgt.Model;local row=Instance.new("Frame");row.Name=tgt.Name;row.Size=UDim2.new(1,-4,0,40);row.BackgroundColor3=C.Card;row.BorderSizePixel=0;row.ZIndex=5;row.Parent=vScroll;cr(row,7);local rowStroke=sk(row,C.Border,1,0.35);addRowGradient(row)
+        local mdl=tgt.Model;
+        
+        -- Если включен автоматический выбор техники, добавляем её в цели при обнаружении
+        if selectAllVehiclesActive then
+            selV[mdl] = {Model=mdl, HRP=tgt.HRP, Type=tgt.Type, Name=tgt.Name}
+            if not vehicleESP[mdl] and mdl.Parent and tgt.HRP and tgt.HRP.Parent then
+                vehicleESP[mdl] = createVehESP(mdl, tgt.HRP, tgt.Type)
+            end
+        end
+
+        local row=Instance.new("Frame");row.Name=tgt.Name;row.Size=UDim2.new(1,-4,0,40);row.BackgroundColor3=C.Card;row.BorderSizePixel=0;row.ZIndex=5;row.Parent=vScroll;cr(row,7);local rowStroke=sk(row,C.Border,1,0.35);addRowGradient(row)
         
         local cb=Instance.new("Frame");cb.Size=UDim2.new(0,14,0,14);cb.Position=UDim2.new(0,6,0.5,-7);cb.BackgroundColor3=C.Input;cb.BorderSizePixel=0;cb.ZIndex=6;cb.Parent=row;cr(cb,4);local cbStroke=sk(cb,C.Border,1,0)
         local cm=Instance.new("TextLabel");cm.Text="";cm.Size=UDim2.new(1,0,1,0);cm.BackgroundTransparency=1;cm.TextColor3=C.White;cm.Font=Enum.Font.GothamBold;cm.TextSize=10;cm.ZIndex=7;cm.Parent=cb
@@ -840,6 +918,9 @@ do
         local btn=Instance.new("TextButton");btn.Size=UDim2.new(1,0,1,0);btn.BackgroundTransparency=1;btn.Text="";btn.ZIndex=8;btn.Parent=row
         
         local function vis() if selV[mdl] then row.BackgroundColor3=C.Sel;rowStroke.Color=C.SelBrd;animateCheckbox(cb,cm,true) else row.BackgroundColor3=C.Card;rowStroke.Color=C.Border;animateCheckbox(cb,cm,false) end end
+        
+        -- Вызываем vis() изначально, чтобы применилось выделение, если техника добавилась под автоматическим Select All
+        vis()
         
         row.MouseEnter:Connect(function()
             TS:Create(row, TweenInfo.new(0.15), {BackgroundColor3 = C.CardH}):Play()
@@ -930,8 +1011,37 @@ do
     local vSelAll=makeSmallBtn("Select All",0,0.5,vBtnFrame);local vClearAll=makeSmallBtn("Clear All",0.5,0.5,vBtnFrame)
     makeButtonInteractive(vSelAll); makeButtonInteractive(vClearAll)
     
-    vSelAll.MouseButton1Click:Connect(function() for m,e in pairs(vehEl) do selV[m]={Model=m,HRP=e.tgt.HRP,Type=e.tgt.Type,Name=e.tgt.Name};e.vis();if not vehicleESP[m] and m.Parent and e.tgt.HRP and e.tgt.HRP.Parent then vehicleESP[m]=createVehESP(m,e.tgt.HRP,e.tgt.Type) end end;updVStat() end)
-    vClearAll.MouseButton1Click:Connect(function() selV={};for _,e in pairs(vehEl) do e.vis() end;for mdl,esp in pairs(vehicleESP) do destroyVehESP(esp) end;vehicleESP={};updVStat() end)
+    vSelAll.MouseButton1Click:Connect(function()
+        selectAllVehiclesActive = not selectAllVehiclesActive
+        if selectAllVehiclesActive then
+            vSelAll.BackgroundColor3 = C.AccentD
+            vSelAll.TextColor3 = C.White
+            -- Выделяем всю текущую технику
+            for m,e in pairs(vehEl) do 
+                selV[m]={Model=m,HRP=e.tgt.HRP,Type=e.tgt.Type,Name=e.tgt.Name}
+                e.vis()
+                if not vehicleESP[m] and m.Parent and e.tgt.HRP and e.tgt.HRP.Parent then 
+                    vehicleESP[m]=createVehESP(m,e.tgt.HRP,e.tgt.Type) 
+                end 
+            end
+            notify("Auto-Select Vehicles ENABLED", C.Success, 2)
+        else
+            vSelAll.BackgroundColor3 = C.Card
+            vSelAll.TextColor3 = C.Text
+            notify("Auto-Select Vehicles DISABLED", C.TextMute, 2)
+        end
+        updVStat()
+    end)
+    
+    vClearAll.MouseButton1Click:Connect(function()
+        -- Выключаем автовыбор, если нажали очистку
+        if selectAllVehiclesActive then
+            selectAllVehiclesActive = false
+            vSelAll.BackgroundColor3 = C.Card
+            vSelAll.TextColor3 = C.Text
+        end
+        selV={};for _,e in pairs(vehEl) do e.vis() end;for mdl,esp in pairs(vehicleESP) do destroyVehESP(esp) end;vehicleESP={};updVStat()
+    end)
     
     vToggle=Instance.new("TextButton");vToggle.Text="START VEHICLES";vToggle.Size=UDim2.new(1,0,0,34);vToggle.Position=UDim2.new(0,0,0,350);vToggle.BackgroundColor3=C.AccentD;vToggle.TextColor3=C.White;vToggle.Font=Enum.Font.GothamBlack;vToggle.TextSize=12;vToggle.AutoButtonColor=false;vToggle.BorderSizePixel=0;vToggle.ZIndex=5;vToggle.Parent=vContent;cr(vToggle,8);sk(vToggle,C.Accent,1,0.2)
     vGrad=Instance.new("UIGradient");vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vGrad.Rotation=90;vGrad.Parent=vToggle
