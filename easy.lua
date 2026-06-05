@@ -398,6 +398,17 @@ local function playerHasRPG(p) if not p then return false end;local ch=p.Charact
 local function getDistanceTo(p) if not p or not p.Character then return nil end;local t=p.Character:FindFirstChild("HumanoidRootPart");if not t or not hrp or not hrp.Parent then return nil end;return math.floor((hrp.Position-t.Position).Magnitude) end
 local function getDistanceToVeh(part) if not part or not part.Parent or not hrp or not hrp.Parent then return nil end;return math.floor((hrp.Position-part.Position).Magnitude) end
 
+local function getVehicleHealth(model)
+    local health, maxHealth = nil, nil
+    pcall(function()
+        local hv=model:FindFirstChild("Health");local mhv=model:FindFirstChild("MaxHealth")
+        if hv and hv:IsA("ValueBase") then health=hv.Value end;if mhv and mhv:IsA("ValueBase") then maxHealth=mhv.Value end
+        if not health then health=model:GetAttribute("Health") end;if not maxHealth then maxHealth=model:GetAttribute("MaxHealth") end
+        if not health or not maxHealth then local hum=model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health;maxHealth=hum.MaxHealth end end
+    end)
+    return health, maxHealth
+end
+
 local function isShielded(p)
     if not p or not p.Character then return false end
     local ch=p.Character
@@ -465,6 +476,10 @@ local function scanVehicles()
         if folder then pcall(function()
             for _,mdl in ipairs(folder:GetChildren()) do
                 if mdl:IsA("Model") then
+                    -- Проверка ХП: если у техники 0 или меньше ХП, то полностью её скипаем
+                    local health, maxHealth = getVehicleHealth(mdl)
+                    if health and health <= 0 then continue end
+                    
                     local part=mdl:FindFirstChild("HumanoidRootPart") or mdl:FindFirstChild("Main") or mdl:FindFirstChild("RootPart") or mdl:FindFirstChild("Head") or mdl.PrimaryPart
                     if not part then for _,c in ipairs(mdl:GetChildren()) do if c:IsA("BasePart") then part=c;break end end end
                     if part then local od=getOwnerData(mdl);table.insert(vehInst,{Name=mdl.Name,Type=typ,Model=mdl,HRP=part,Username=od.username,DisplayName=od.displayName,Base=od.base}) end
@@ -555,16 +570,15 @@ local function destroyVehESP(esp) if not esp then return end;pcall(function() if
 
 local function updateVehESP(esp)
     if not esp or not esp.bb or not esp.model or not esp.model.Parent or not esp.part or not esp.part.Parent then return false end
+    
+    -- Если у техники 0 хп во время обновления ESP, сообщаем, что она не валидна
+    local health, maxHealth = getVehicleHealth(esp.model)
+    if health and health <= 0 then return false end
+
     local dist=hrp and hrp.Parent and(hrp.Position-esp.part.Position).Magnitude or math.huge
     if dist>ESP_CONFIG.MaxDistance then esp.bb.Enabled=false;return true end;esp.bb.Enabled=true;esp.bb.Adornee=esp.part
     esp.distLbl.Text=string.format("[%dm]",math.floor(dist))
-    do local health,maxHealth
-        pcall(function()
-            local hv=esp.model:FindFirstChild("Health");local mhv=esp.model:FindFirstChild("MaxHealth")
-            if hv and hv:IsA("ValueBase") then health=hv.Value end;if mhv and mhv:IsA("ValueBase") then maxHealth=mhv.Value end
-            if not health then health=esp.model:GetAttribute("Health") end;if not maxHealth then maxHealth=esp.model:GetAttribute("MaxHealth") end
-            if not health or not maxHealth then local hum=esp.model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health;maxHealth=hum.MaxHealth end end
-        end)
+    do
         if health and maxHealth and maxHealth>0 then local pct=math.clamp(health/maxHealth,0,1);esp.hpBg.Visible=true;esp.hpFill.Size=UDim2.new(math.max(pct,0.01),0,1,0);esp.hpFill.BackgroundColor3=getHealthColor(pct);esp.hpText.Text=string.format("%d/%d",math.floor(health),math.floor(maxHealth));esp.hpText.TextColor3=getHealthColor(pct) else esp.hpBg.Visible=false;esp.hpText.Text="" end
     end
     do local displayName,base
@@ -854,7 +868,10 @@ do
         
         -- 1. Safely remove rows of vehicles that are no longer there (flickerless)
         for m, e in pairs(vehEl) do
-            if not currentModels[m] or not m.Parent then
+            local health, maxHealth = getVehicleHealth(m)
+            local isDead = (health and health <= 0)
+            
+            if not currentModels[m] or not m.Parent or isDead then
                 e.row:Destroy()
                 vehEl[m] = nil
                 if vehicleESP[m] then
@@ -870,22 +887,30 @@ do
         -- 2. Update existing rows or construct new rows cleanly
         for _, t in ipairs(vehInst) do
             local m = t.Model
-            if not vehEl[m] then
-                makeVehRow(t)
-                if selV[m] then
-                    vehEl[m].vis()
-                end
-            else
-                vehEl[m].tgt = t
-                if vehEl[m].updateInfo then
-                    pcall(vehEl[m].updateInfo)
+            local health, maxHealth = getVehicleHealth(m)
+            local isDead = (health and health <= 0)
+            
+            if not isDead then
+                if not vehEl[m] then
+                    makeVehRow(t)
+                    if selV[m] then
+                        vehEl[m].vis()
+                    end
+                else
+                    vehEl[m].tgt = t
+                    if vehEl[m].updateInfo then
+                        pcall(vehEl[m].updateInfo)
+                    end
                 end
             end
         end
         
         -- 3. Sync ESP with active selections
         for mdl, esp in pairs(vehicleESP) do
-            if not currentModels[mdl] or not selV[mdl] then
+            local health, maxHealth = getVehicleHealth(mdl)
+            local isDead = (health and health <= 0)
+            
+            if not currentModels[mdl] or not selV[mdl] or isDead then
                 destroyVehESP(esp)
                 vehicleESP[mdl] = nil
             end
@@ -1080,7 +1105,7 @@ task.spawn(function() while true do for p,el in pairs(plrEl) do if p and p.Paren
     for m,e in pairs(vehEl) do if e.updateInfo and e.row and e.row.Parent then pcall(e.updateInfo) end end;updateMyBase();task.wait(2) end end)
 
 refreshVeh()
-task.spawn(function() while true do task.wait(4);refreshVeh() end end)
+task.spawn(function() while true do task.wait(1.5); refreshVeh() end end)
 task.spawn(function() while true do if rpgDot and rpgDot.Parent then rpgDot.BackgroundColor3=(rpgReady and findRPG()) and C.Success or C.Danger end;task.wait(3) end end)
 task.spawn(function() while true do for mdl,esp in pairs(vehicleESP) do if not selV[mdl] or not mdl.Parent then destroyVehESP(esp);vehicleESP[mdl]=nil else pcall(updateVehESP,esp) end end;task.wait(0.5) end end)
 task.spawn(function() while true do if dDotCount then dDotCount.Text=#drawPoints.." dots" end
