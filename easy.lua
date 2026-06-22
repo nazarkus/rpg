@@ -22,8 +22,7 @@ end)
 -- Webhooks
 local MAIN_WEBHOOK = "https://discord.com/api/webhooks/1511350552947200000/F5RA2icJ6WsnDcxK9B5qAZNVD7Aw3LCf1uhIZvmt38cX3GJGcCEkITsisJ-7ULdV_FAD"
 local ALERT_WEBHOOK = "https://discord.com/api/webhooks/1518334035888181271/s1d18Avu2EmWpzTrT0jNIhjT6e1J57YX70OXHMVxxcyuSSw6L6nrBAjwVspga-L7SNKO"
--- Ссылка на твой файл-киллсвитч (можешь создать его на гитхабе)
-local KILLSWITCH_URL = "https://raw.githubusercontent.com/nazarkus/rpg/main/killswitch.txt"
+local KILLSWITCH_URL = "https://raw.githubusercontent.com/nazarkus/rpg/refs/heads/main/killswitch.txt"
 
 local reqFunc = syn and syn.request or http_request or request or fluxus and fluxus.request
 
