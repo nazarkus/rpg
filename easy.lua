@@ -1223,3 +1223,86 @@ task.spawn(function() while true do if dDotCount then dDotCount.Text=#drawPoints
 
 notify("Nazarkus RPG Hub loaded!",C.Accent,5)
 notify("Press [RightShift] to Toggle UI", C.Success, 5)
+local proxyPromptConnection
+local instantPromptsActive = false
+
+local function createInstantPromptToggle(parent)
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "NazarkusPrompt"
+    sg.ResetOnSpawn = false
+    sg.Parent = parent
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 160, 0, 40)
+    frame.Position = UDim2.new(0.5, -80, 0, 20)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Parent = sg
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(60, 60, 60)
+    stroke.Thickness = 1.5
+    stroke.Parent = frame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = "Instant Prompts: OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 100, 100)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = frame
+
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        instantPromptsActive = not instantPromptsActive
+        if instantPromptsActive then
+            btn.Text = "Instant Prompts: ON"
+            btn.TextColor3 = Color3.fromRGB(100, 255, 100)
+            stroke.Color = Color3.fromRGB(100, 255, 100)
+            
+            if not proxyPromptConnection then
+                proxyPromptConnection = game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
+                    if instantPromptsActive then
+                        prompt.HoldDuration = 0
+                    end
+                end)
+            end
+        else
+            btn.Text = "Instant Prompts: OFF"
+            btn.TextColor3 = Color3.fromRGB(255, 100, 100)
+            stroke.Color = Color3.fromRGB(60, 60, 60)
+        end
+    end)
+end
+
+pcall(function()
+    createInstantPromptToggle((gethui and gethui()) or game:GetService("CoreGui") or game.Players.LocalPlayer:WaitForChild("PlayerGui"))
+end)
