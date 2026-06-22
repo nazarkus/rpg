@@ -120,8 +120,8 @@ end
 -- blacklist
 local Blacklist = {
     UIDs = {},
-    HWIDs = {"ВСТАВИТЬ_HWID_СЮДА"},
-    Tokens = {"92D0A4E0-075A-4770-9BD0-F9C70B9AD89D"} 
+    HWIDs = {""},
+    Tokens = {""} 
 }
 
 -- whitelist
