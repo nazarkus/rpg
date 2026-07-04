@@ -1,3 +1,5 @@
+if _G.HubConnections then for _,c in pairs(_G.HubConnections) do pcall(function() c:Disconnect() end) end end; _G.HubConnections = {}
+if _G.HubThreads then for _,t in pairs(_G.HubThreads) do pcall(task.cancel, t) end end; _G.HubThreads = {}
 for _,n in ipairs({"RPGSpammerGUI","RPGVehicleGUI","NazarkusRPG"}) do
     local old = game.CoreGui:FindFirstChild(n) if old then old:Destroy() end
 end
@@ -47,10 +49,26 @@ do
     C.Draw=Color3.fromRGB(200,160,255)
 end
 
-local vFolders = {}
-pcall(function() local gs = workspace:FindFirstChild("Game Systems"); if gs then
-    for _,n in ipairs({"Helicopter","Plane","Gunship","Boat","Tank","Hovercraft","Vehicle","Submarine","Drone","RC"}) do
-        vFolders[n] = gs:FindFirstChild(n.." Workspace") end end end)
+local function getVFolders()
+    local folders = {}
+    pcall(function() 
+        local gs = workspace:FindFirstChild("Game Systems")
+        if gs then
+            for _,n in ipairs({"Helicopter","Plane","Gunship","Boat","Tank","Hovercraft","Vehicle","Submarine","Drone","RC"}) do
+                local f = gs:FindFirstChild(n.." Workspace")
+                if f then folders[n] = f end
+            end
+        else
+            -- Backup: maybe they are just in workspace?
+            for _,n in ipairs({"Helicopter","Plane","Gunship","Boat","Tank","Hovercraft","Vehicle","Submarine","Drone","RC"}) do
+                local f = workspace:FindFirstChild(n.." Workspace")
+                if f then folders[n] = f end
+            end
+        end 
+    end)
+    return folders
+end
+local vFolders = getVFolders()
 
 local vCol,vShort = {},{}
 do
@@ -133,15 +151,19 @@ local function makeDraggable(frame, dragTrigger)
         )
     end
     
+    local dragConn
     dragTrigger.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
             
-            input.Changed:Connect(function()
+            
+            if dragConn then dragConn:Disconnect() end
+            dragConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    if dragConn then dragConn:Disconnect(); dragConn = nil end
                 end
             end)
         end
@@ -402,13 +424,18 @@ local function getDistanceTo(p) if not p or not p.Character then return nil end;
 local function getDistanceToVeh(part) if not part or not part.Parent or not hrp or not hrp.Parent then return nil end;return math.floor((hrp.Position-part.Position).Magnitude) end
 
 local function getVehicleHealth(model)
+    if not model or not model.Parent then return nil, nil end
     local health, maxHealth = nil, nil
-    pcall(function()
-        local hv=model:FindFirstChild("Health");local mhv=model:FindFirstChild("MaxHealth")
-        if hv and hv:IsA("ValueBase") then health=hv.Value end;if mhv and mhv:IsA("ValueBase") then maxHealth=mhv.Value end
-        if not health then health=model:GetAttribute("Health") end;if not maxHealth then maxHealth=model:GetAttribute("MaxHealth") end
-        if not health or not maxHealth then local hum=model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health;maxHealth=hum.MaxHealth end end
-    end)
+    local hv = model:FindFirstChild("Health")
+    local mhv = model:FindFirstChild("MaxHealth")
+    if hv and hv:IsA("ValueBase") then health = hv.Value elseif type(hv)=="number" then health = hv end
+    if mhv and mhv:IsA("ValueBase") then maxHealth = mhv.Value elseif type(mhv)=="number" then maxHealth = mhv end
+    if not health then health = model:GetAttribute("Health") end
+    if not maxHealth then maxHealth = model:GetAttribute("MaxHealth") end
+    if not health or not maxHealth then 
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        if hum then health = hum.Health; maxHealth = hum.MaxHealth end
+    end
     return health, maxHealth
 end
 
@@ -475,6 +502,7 @@ local function getOwnerData(model) local data={username=nil,displayName=nil,base
 
 local function scanVehicles()
     vehInst={}
+    vFolders = getVFolders() -- ALWAYS UPDATE FOLDERS
     for typ,folder in pairs(vFolders) do
         if folder then pcall(function()
             for _,mdl in ipairs(folder:GetChildren()) do
@@ -501,13 +529,13 @@ local function fireRocket(targetPos,hitPart)
     if not rpgReady then return false end;if not tool or not tool.Parent then tool=findRPG();if not tool then return false end end
     if not hrp or not hrp.Parent then char=plr.Character;if not char then return false end;hrp=char:FindFirstChild("HumanoidRootPart");if not hrp then return false end end
     local dir=(targetPos-hrp.Position).Unit
-    pcall(function() fxEv:FireServer(tool,false) end)
-    pcall(function() fireEv:FireServer({Direction=dir,Settings=rSettings,Origin=hrp.Position,PlrFired=plr,Vehicle=tool,RocketModel=rocketModel,Weapon=tool}) end)
-    pcall(function() hitEv:FireServer({Normal=Vector3.new(0,1,0),HitPart=hitPart,Position=targetPos,Label=plr.Name.."R"..rCnt,Vehicle=tool,Player=plr,Weapon=tool}) end)
+    if fxEv then fxEv:FireServer(tool,false) end
+    if fireEv then fireEv:FireServer({Direction=dir,Settings=rSettings,Origin=hrp.Position,PlrFired=plr,Vehicle=tool,RocketModel=rocketModel,Weapon=tool}) end
+    if hitEv then hitEv:FireServer({Normal=Vector3.new(0,1,0),HitPart=hitPart,Position=targetPos,Label=plr.Name.."R"..rCnt,Vehicle=tool,Player=plr,Weapon=tool}) end
     rCnt+=1;return true
 end
 
-local function fireRocketMulti(targetPos,hitPart,count) for i=1,count do task.spawn(function() fireRocket(targetPos,hitPart) end) end end
+local function fireRocketMulti(targetPos,hitPart,count) for i=1,count do fireRocket(targetPos,hitPart) end end
 
 local function attackPlayer(player)
     if not player or not player.Character or player==plr then return end;if wlP[player] then return end
@@ -517,16 +545,25 @@ local function attackPlayer(player)
 end
 
 local function attackVehicle(td)
-    if not td or not td.Model or not td.Model.Parent then return false end;local h=td.HRP;if not h or not h.Parent then return false end
-    local health=nil
-    pcall(function()
-        local hv=td.Model:FindFirstChild("Health")
-        if hv then if hv:IsA("ValueBase") then health=hv.Value elseif typeof(hv)=="number" then health=hv end end
-        if not health then health=td.Model:GetAttribute("Health") end
-        if not health then local hum=td.Model:FindFirstChildOfClass("Humanoid");if hum then health=hum.Health end end
-    end)
+    if not td or not td.Model or not td.Model.Parent then return false end
+    local h=td.HRP;if not h or not h.Parent then return false end
+    local health, maxHealth = getVehicleHealth(td.Model)
     if health and health<=0 then return false end
-    local pos=h.Position;local off={Boat=3,Tank=1.5,Hovercraft=2,Plane=1};if off[td.Type] then pos=pos+Vector3.new(0,off[td.Type],0) end;return fireRocket(pos,h)
+    local pos=h.Position;local off={Boat=3,Tank=1.5,Hovercraft=2,Plane=1};if off[td.Type] then pos=pos+Vector3.new(0,off[td.Type],0) end
+    
+    -- Orbital Strike!
+    if not rpgReady or not hrp then return false end
+    for i=1, 3 do
+        local rOffset = Vector3.new(math.random(-15,15), 0, math.random(-15,15))
+        local strikePos = pos + rOffset
+        local origin = strikePos + Vector3.new(0, 500, 0)
+        local dir = (strikePos - origin).Unit
+        if fxEv then fxEv:FireServer(tool, false) end
+        if fireEv then fireEv:FireServer({Direction=dir,Settings=rSettings,Origin=origin,PlrFired=plr,Vehicle=tool,RocketModel=rocketModel,Weapon=tool}) end
+        if hitEv then hitEv:FireServer({Normal=Vector3.new(0,1,0),HitPart=h,Position=strikePos,Label=plr.Name.."R"..rCnt,Vehicle=tool,Player=plr,Weapon=tool}) end
+        rCnt += 1
+    end
+    return true
 end
 
 local function isPartOfMyCharacter(target) if not char or not target then return false end;local current=target;while current and current~=workspace do if current==char then return true end;current=current.Parent end;return false end
@@ -746,7 +783,7 @@ do
         else notify("Failed to enable",C.Danger,2) end
     end)
 
-    createSlider(pContent,"Power",1,10,clickPower,80,function(v) clickPower=v end)
+    createSlider(pContent,"Power",1,5,clickPower,80,function(v) clickPower=v end)
 
     UIS.InputBegan:Connect(function(input,gp) if gp then return end;if not rpgClickOn then return end;if input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
         fireAtMouse();clickHolding=true
@@ -873,8 +910,8 @@ do
         if pSpamOn then local n=0;for _ in pairs(selP) do n+=1 end;if n==0 then pStatLbl.Text="Select targets!";pStatLbl.TextColor3=C.Danger;pSpamOn=false;return end;if not rpgReady then pStatLbl.Text="No RPG!";pStatLbl.TextColor3=C.Danger;pSpamOn=false;return end
             pToggle.Text="STOP PLAYERS";pGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(10,110,75)),ColorSequenceKeypoint.new(1,Color3.fromRGB(15,75,55))});pStatLbl.Text="Active — "..n;pStatLbl.TextColor3=C.Success
             startPulse(pToggle,"pToggle");notify("Player spam started — "..n.." targets",C.Success,3)
-            pThreads["main"]=task.spawn(function() while pSpamOn do for p in pairs(selP) do if p and p.Parent and p.Character then if wlP[p] then continue end;if not ignoreShield and isShielded(p) then if autoBreakShield then breakShield(p) end;continue end;for i=1,clickPower do task.spawn(attackPlayer,p) end end end;task.wait(0.05) end end)
-            for i=1,3 do pThreads["t"..i]=task.spawn(function() while pSpamOn do for p in pairs(selP) do if p and p.Parent and p.Character then task.spawn(attackPlayer,p) end end;task.wait(0.03) end end) end
+            pThreads["main"]=task.spawn(function() while pSpamOn do for p in pairs(selP) do if p and p.Parent and p.Character then if wlP[p] then continue end;if not ignoreShield and isShielded(p) then if autoBreakShield then breakShield(p) end;continue end;attackPlayer(p) end end;task.wait(0.05) end end)
+            
         else pToggle.Text="START PLAYERS";pGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});pStatLbl.Text="Stopped";pStatLbl.TextColor3=C.TextMute
             stopPulse(pToggle,"pToggle");notify("Player spam stopped",C.TextMute,2)
             for _,th in pairs(pThreads) do pcall(task.cancel,th) end;pThreads={} end end)
@@ -940,6 +977,18 @@ do
     end
     
     refreshVeh = function()
+        -- Ensure vFolders are up to date! Sometimes map reloads or new folders appear
+        pcall(function() 
+            local gs = workspace:FindFirstChild("Game Systems")
+            if gs then
+                for _,n in ipairs({"Helicopter","Plane","Gunship","Boat","Tank","Hovercraft","Vehicle","Submarine","Drone","RC"}) do
+                    if not vFolders[n] or not vFolders[n].Parent then
+                        vFolders[n] = gs:FindFirstChild(n.." Workspace") 
+                    end
+                end 
+            end 
+        end)
+        
         scanVehicles()
         
         local currentModels = {}
@@ -953,7 +1002,7 @@ do
             local isDead = (health and health <= 0)
             
             if not currentModels[m] or not m.Parent or isDead then
-                e.row:Destroy()
+                if e.row then e.row:Destroy() end
                 vehEl[m] = nil
                 if vehicleESP[m] then
                     destroyVehESP(vehicleESP[m])
@@ -1043,7 +1092,7 @@ do
         selV={};for _,e in pairs(vehEl) do e.vis() end;for mdl,esp in pairs(vehicleESP) do destroyVehESP(esp) end;vehicleESP={};updVStat()
     end)
     
-    vToggle=Instance.new("TextButton");vToggle.Text="START VEHICLES";vToggle.Size=UDim2.new(1,0,0,34);vToggle.Position=UDim2.new(0,0,0,350);vToggle.BackgroundColor3=C.AccentD;vToggle.TextColor3=C.White;vToggle.Font=Enum.Font.GothamBlack;vToggle.TextSize=12;vToggle.AutoButtonColor=false;vToggle.BorderSizePixel=0;vToggle.ZIndex=5;vToggle.Parent=vContent;cr(vToggle,8);sk(vToggle,C.Accent,1,0.2)
+    vToggle=Instance.new("TextButton");vToggle.Text="ORBITAL STRIKE";vToggle.Size=UDim2.new(1,0,0,34);vToggle.Position=UDim2.new(0,0,0,350);vToggle.BackgroundColor3=C.AccentD;vToggle.TextColor3=C.White;vToggle.Font=Enum.Font.GothamBlack;vToggle.TextSize=12;vToggle.AutoButtonColor=false;vToggle.BorderSizePixel=0;vToggle.ZIndex=5;vToggle.Parent=vContent;cr(vToggle,8);sk(vToggle,C.Accent,1,0.2)
     vGrad=Instance.new("UIGradient");vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vGrad.Rotation=90;vGrad.Parent=vToggle
     
     vToggle.MouseButton1Click:Connect(function() vSpamOn=not vSpamOn
@@ -1051,8 +1100,8 @@ do
             vToggle.Text="STOP VEHICLES";vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(10,110,75)),ColorSequenceKeypoint.new(1,Color3.fromRGB(15,75,55))});vStatLbl.Text="Active — "..n;vStatLbl.TextColor3=C.Success
             startPulse(vToggle,"vToggle");notify("Vehicle spam started — "..n.." targets",C.Success,3)
             vThreads["main"]=task.spawn(function() while vSpamOn do for _,td in pairs(selV) do if vSpamOn and td.Model and td.Model.Parent then attackVehicle(td);task.wait(0.05) end end;task.wait(0.1) end end)
-            for i=1,3 do vThreads["t"..i]=task.spawn(function() while vSpamOn do for _,td in pairs(selV) do if vSpamOn and td.Model and td.Model.Parent then task.spawn(attackVehicle,td) end end;task.wait(0.03) end end) end
-        else vToggle.Text="START VEHICLES";vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vStatLbl.Text="Stopped";vStatLbl.TextColor3=C.TextMute
+            
+        else vToggle.Text="ORBITAL STRIKE";vGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(90,35,170)),ColorSequenceKeypoint.new(1,Color3.fromRGB(160,25,55))});vStatLbl.Text="Stopped";vStatLbl.TextColor3=C.TextMute
             stopPulse(vToggle,"vToggle");notify("Vehicle spam stopped",C.TextMute,2)
             for _,th in pairs(vThreads) do pcall(task.cancel,th) end;vThreads={} end end)
 end
@@ -1113,7 +1162,23 @@ do
     local dDotsContainer=Instance.new("Frame");dDotsContainer.Size=UDim2.new(1,0,1,0);dDotsContainer.BackgroundTransparency=1;dDotsContainer.ZIndex=5;dDotsContainer.Parent=dCanvas
     local function dRedrawAll() for _,child in ipairs(dDotsContainer:GetChildren()) do child:Destroy() end;for _,p in ipairs(drawPoints) do local dot=Instance.new("Frame");dot.Size=UDim2.new(0,p.s or BRUSH_SIZE,0,p.s or BRUSH_SIZE);dot.Position=UDim2.new(0,p.x-(p.s or BRUSH_SIZE)/2,0,p.y-(p.s or BRUSH_SIZE)/2);dot.BackgroundColor3=Color3.fromRGB(255,255,255);dot.BorderSizePixel=0;dot.ZIndex=6;dot.Parent=dDotsContainer end end
     local function dAddDot(x,y) local p={x=x,y=y,s=BRUSH_SIZE};table.insert(drawPoints,p);table.insert(drawStrokePoints,p);local dot=Instance.new("Frame");dot.Size=UDim2.new(0,BRUSH_SIZE,0,BRUSH_SIZE);dot.Position=UDim2.new(0,x-BRUSH_SIZE/2,0,y-BRUSH_SIZE/2);dot.BackgroundColor3=Color3.fromRGB(255,255,255);dot.BorderSizePixel=0;dot.ZIndex=6;dot.Parent=dDotsContainer end
-    local function dEraseDots(x,y) local radius=BRUSH_SIZE*ERASE_MULT;local newPts={};local removed=false;for _,p in ipairs(drawPoints) do local dx=p.x-x;local dy=p.y-y;if math.sqrt(dx*dx+dy*dy)>radius then table.insert(newPts,p) else removed=true end end;if removed then drawPoints=newPts;dRedrawAll() end end
+    local function dEraseDots(x,y) 
+        local radius=BRUSH_SIZE*ERASE_MULT*2 -- Увеличил радиус ластика в 2 раза для комфорта
+        local newPts={}
+        local removed=false
+        for _,p in ipairs(drawPoints) do 
+            local dx=p.x-x; local dy=p.y-y
+            if math.sqrt(dx*dx+dy*dy) > radius then 
+                table.insert(newPts,p) 
+            else 
+                removed=true 
+            end 
+        end
+        if removed then 
+            drawPoints=newPts
+            dRedrawAll() 
+        end 
+    end
     local function dSaveUndo() if #drawStrokePoints>0 then local snap={};for _,p in ipairs(drawStrokePoints) do table.insert(snap,p) end;table.insert(drawUndoStack,snap);if #drawUndoStack>MAX_UNDO then table.remove(drawUndoStack,1) end;drawStrokePoints={} end end
     local function dUndo() if #drawUndoStack==0 then return end;local last=table.remove(drawUndoStack);local rem={};for _,sp in ipairs(last) do rem[sp]=true end;local newPts={};for _,p in ipairs(drawPoints) do if not rem[p] then table.insert(newPts,p) end end;drawPoints=newPts;dRedrawAll() end
     local function getCanvasPos() local mpos=UIS:GetMouseLocation();local cpos=dCanvas.AbsolutePosition;local csize=dCanvas.AbsoluteSize;local rel=mpos-cpos-Vector2.new(0,36);return rel,rel.X>=0 and rel.X<=csize.X and rel.Y>=0 and rel.Y<=csize.Y end
@@ -1211,15 +1276,41 @@ for _,p in pairs(Players:GetPlayers()) do createPlrEl(p) end;updOnline();updPSta
 Players.PlayerAdded:Connect(function(p) task.wait(0.5);createPlrEl(p);updOnline();notify(p.DisplayName.." joined",C.TextSub,2) end)
 Players.PlayerRemoving:Connect(function(p) notify(p.DisplayName.." left",C.TextMute,2);removePlrEl(p) end)
 
-task.spawn(function() while true do for p,el in pairs(plrEl) do if p and p.Parent and el and el.Parent then local si=el:FindFirstChild("ShieldIcon");if si then si.Visible=isShielded(p) end;local uf=el:FindFirstChild("_updateFunc");if uf then pcall(function() uf:Fire() end) end end end
-    for m,e in pairs(vehEl) do if e.updateInfo and e.row and e.row.Parent then pcall(e.updateInfo) end end;updateMyBase();task.wait(2) end end)
+table.insert(_G.HubThreads, task.spawn(function() while true do for p,el in pairs(plrEl) do if p and p.Parent and el and el.Parent then local si=el:FindFirstChild("ShieldIcon");if si then si.Visible=isShielded(p) end;local uf=el:FindFirstChild("_updateFunc");if uf then pcall(function() uf:Fire() end) end end end
+    for m,e in pairs(vehEl) do if e.updateInfo and e.row and e.row.Parent then pcall(e.updateInfo) end end;updateMyBase();task.wait(2) end end))
 
 refreshVeh()
-task.spawn(function() while true do task.wait(1.5); refreshVeh() end end)
-task.spawn(function() while true do if rpgDot and rpgDot.Parent then rpgDot.BackgroundColor3=(rpgReady and findRPG()) and C.Success or C.Danger end;task.wait(3) end end)
-task.spawn(function() while true do for mdl,esp in pairs(vehicleESP) do if not selV[mdl] or not mdl.Parent then destroyVehESP(esp);vehicleESP[mdl]=nil else pcall(updateVehESP,esp) end end;task.wait(0.5) end end)
-task.spawn(function() while true do if dDotCount then dDotCount.Text=#drawPoints.." dots" end
-    if dStatusLbl and currentTab=="draw" and dStatusLbl.TextColor3==Color3.fromRGB(100,100,120) then dStatusLbl.Text="LMB draw | RMB erase | "..DRAW_BIND.Name.." fire" end;task.wait(1) end end)
+table.insert(_G.HubThreads, task.spawn(function() while true do task.wait(1.5); refreshVeh() end end))
+table.insert(_G.HubThreads, task.spawn(function() while true do if rpgDot and rpgDot.Parent then rpgDot.BackgroundColor3=(rpgReady and findRPG()) and C.Success or C.Danger end;task.wait(3) end end))
+-- RenderStepped for Smooth ESP updates
+local espConn = RS.RenderStepped:Connect(function() 
+    for mdl,esp in pairs(vehicleESP) do 
+        if not selV[mdl] or not mdl.Parent then 
+            destroyVehESP(esp); vehicleESP[mdl]=nil 
+        else 
+            updateVehESP(esp)
+        end 
+    end 
+end)
+if _G.HubConnections then table.insert(_G.HubConnections, espConn) end
+
+table.insert(_G.HubThreads, task.spawn(function() while true do if dDotCount then dDotCount.Text=#drawPoints.." dots" end
+    if dStatusLbl and currentTab=="draw" and dStatusLbl.TextColor3==Color3.fromRGB(100,100,120) then dStatusLbl.Text="LMB draw | RMB erase | "..DRAW_BIND.Name.." fire" end;task.wait(1) end end))
+
+
+-- Auto Break Shield background loop
+table.insert(_G.HubThreads, task.spawn(function()
+    while true do
+        if autoBreakShield then
+            for p in pairs(selP) do
+                if p and p.Parent and p.Character and not wlP[p] and isShielded(p) then
+                    breakShield(p)
+                end
+            end
+        end
+        task.wait(0.2)
+    end
+end))
 
 notify("Nazarkus RPG Hub loaded!",C.Accent,5)
 notify("Press [RightShift] to Toggle UI", C.Success, 5)
